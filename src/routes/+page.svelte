@@ -12,7 +12,7 @@
     }
 </script>
 
-<div class="flex-1 min-h-0 flex flex-col gap-4 items-center justify-center">
+<div class="flex-1 min-h-0 flex flex-col gap-4 items-center justify-center px-8">
     <div class="prose">
         <h2>Start a new thread</h2>
     </div>

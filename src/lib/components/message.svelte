@@ -2,13 +2,14 @@
 	import type { ChatMessage, ChatMessageContent } from "$lib/server/db";
 	import { cn, debounce } from "$lib/utils";
     import SvelteMarkdown from '@humanspeak/svelte-markdown'
-	import { Copy, Pencil, Trash2, Bot, RefreshCcw } from "lucide-svelte";
+	import { Pencil, Trash2, Bot, RefreshCcw, Wrench } from "lucide-svelte";
 	import type { FormEventHandler } from "svelte/elements";
 	import { Button } from "$lib/components/ui/button/";
+    import * as Accordion from '$lib/components/ui/accordion'
 
     interface Props {
-        message: ChatMessage,
-        editable?: boolean,
+        message: ChatMessage
+        editable?: boolean
         onMessageDelete?: () => void
     }
 
@@ -23,7 +24,6 @@
         let textContent = ''
         if (firstChild.nodeName === 'PRE') {
             for (const node of firstChild.childNodes) {
-                console.log('node:', node.nodeName)
                 if (node.nodeName === 'BR') {
                     textContent += '\n'
                 } else if (node.nodeType === Node.TEXT_NODE) {
@@ -57,16 +57,13 @@
     }
 
     async function deleteMessage() {
-        console.log('Deleting message...')
-        if (!message.id) {
-            console.log('Message ID is not set, skipping delete.')
-            return
-        }
-        const resp = await fetch(`/api/chat/${message.chatId}/message/${message.id}`, {
-            method: 'DELETE'
-        })
-        if (!resp.ok) {
-            console.error('Failed to delete message:', await resp.text())
+        if (message.id) {
+            const resp = await fetch(`/api/chat/${message.chatId}/message/${message.id}`, {
+                method: 'DELETE'
+            })
+            if (!resp.ok) {
+                console.error('Failed to delete message:', await resp.text())
+            }
         }
         onMessageDelete?.()
     }
@@ -84,6 +81,22 @@
 
         editMode = false
         editedContent = null
+    }
+
+    function splitReasoning() {
+        if (!message.content.startsWith('<think>')) {
+            return [null, message.content]
+        }
+
+        const endIdx = message.content.indexOf('</think>')
+        if (endIdx === -1) {
+            return [message.content.slice('<think>'.length), null]
+        } else {
+            return [
+                message.content.slice('<think>'.length, endIdx),
+                message.content.slice(endIdx + '</think>'.length)
+            ]
+        }
     }
 </script>
 
@@ -118,7 +131,7 @@
             {/if}
         </div>
     </div>
-{:else}
+{:else if message.role === 'assistant'}
     <div class="flex gap-4 items-start py-4">
         <div class="rounded-full bg-muted p-2">
             <Bot class="w-6 h-6 text-muted-foreground" />
@@ -140,7 +153,28 @@
                         </Button>
                     </div>
                 {:else}
-                    <SvelteMarkdown source={message.content} />
+                    {@const [reasoning, answer] = splitReasoning()}
+                    {#if reasoning}
+                        <div class="text-muted-foreground text-xs border-l-4 pl-2">
+                            <Accordion.Root type="single">
+                                <Accordion.Item value="reasoning" class="border-none">
+                                    <Accordion.Trigger class="hover:no-underline border-b-none text-base justify-start gap-2 py-0">
+                                        {#if answer !== null}
+                                            Reasoning
+                                        {:else}
+                                            Thinking...
+                                        {/if}
+                                    </Accordion.Trigger>
+                                    <Accordion.Content>
+                                        <SvelteMarkdown source={reasoning} />
+                                    </Accordion.Content>
+                                </Accordion.Item>
+                            </Accordion.Root>
+                        </div>
+                    {/if}
+                    {#if answer}
+                        <SvelteMarkdown source={answer} />
+                    {/if}
                 {/if}
             </div>
             {#if editable}
@@ -148,6 +182,27 @@
                     <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={() => editMode = true}>
                         <Pencil />
                     </Button>
+                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
+                        <Trash2 />
+                    </Button>
+                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3">
+                        <RefreshCcw />
+                    </Button>
+                </div>
+            {/if}
+        </div>
+    </div>
+{:else}
+    <div class="flex gap-4 items-start py-4">
+        <div class="rounded-full bg-muted p-2">
+            <Wrench class="w-6 h-6 text-muted-foreground" />
+        </div>
+        <div class="flex-1 flex flex-col items-start group py-2">
+            <div class="self-start prose">
+                <SvelteMarkdown source={`\`\`\`\n${message.content || 'No output'}\n\`\`\``} />
+            </div>
+            {#if editable}
+                <div class="flex gap-1 py-2 text-muted-foreground invisible group-hover:visible">
                     <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
                         <Trash2 />
                     </Button>

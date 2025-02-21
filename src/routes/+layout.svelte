@@ -1,7 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import { goto } from '$app/navigation';
-    import MessageInput from '$lib/components/message-input.svelte'
 	import ChatComponent from '$lib/components/chat.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Select from '$lib/components/ui/select';
@@ -24,21 +22,23 @@
 
 </script>
 
-<main class="grid h-screen grid-cols-[320px_1fr]">
-	<div class="h-full border-r border-gray-100 bg-gray-50">
+<main class="grid h-screen grid-cols-1 md:grid-cols-[280px_1fr]">
+	<div class="flex flex-col h-full border-r border-gray-100 bg-gray-50 overflow-y-auto">
 		<div class="flex w-full justify-start items-center p-2 h-14 border-b">
 			<Button variant="ghost" size="sm" href="/" class="hover:bg-gray-200">
 				<SquarePen />
 				New chat
 			</Button>
 		</div>
-		{#each data.chats as chat}
-			<ChatComponent {chat} />
-		{:else}
-			<p class="text-muted-foreground text-xs uppercase text-center font-bold mt-4">
-				No chats found
-			</p>
-		{/each}
+		<div class="flex-1 min-h-0 overflow-y-auto pb-10">
+			{#each data.chats as chat}
+				<ChatComponent {chat} />
+			{:else}
+				<p class="text-muted-foreground text-xs uppercase text-center font-bold mt-4">
+					No chats found
+				</p>
+			{/each}
+		</div>
 	</div>
 	<div class="flex h-screen flex-col">
 		<div class="border-b h-14 flex items-center px-2">
@@ -52,6 +52,12 @@
 					{/each}
 				</Select.Content>
 			</Select.Root>
+			<div class="flex-1"></div>
+			<div class="block md:hidden">
+				<Button variant="ghost" size="sm" href="/" class="hover:bg-gray-200">
+					<SquarePen />
+				</Button>
+			</div>
 		</div>
 		{@render children()}
 	</div>

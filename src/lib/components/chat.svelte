@@ -8,6 +8,7 @@
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
 	import type { Chat } from '$lib/server/db';
 	import { GoogleGenerativeAI } from '@google/generative-ai';
+	import { Portal } from 'bits-ui';
 
     type Props = {
         chat: Chat
@@ -49,9 +50,9 @@
     let dropdownOpen = $state(false)
 </script>
 
-<div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg", parseInt(page.params.chatId) === chat.id && 'bg-gray-200')}>
-    <a href={`/chat/${chat.id}`} class="flex-1 py-3 pl-3 flex gap-1 items-center">
-        <div class="text-sm">{chat.title ?? "Untitled chat"}</div>	
+<div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg transition-colors", parseInt(page.params.chatId) === chat.id && 'bg-gray-200')}>
+    <a href={`/chat/${chat.id}`} class="flex-1 py-3 pl-3 flex gap-2 items-center overflow-hidden whitespace-nowrap text-ellipsis">
+        <div class={cn("text-sm", chat.frozen ? "text-blue-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
         {#if chat.frozen}
             <Snowflake class="w-3 h-3 text-blue-500" />
         {/if}

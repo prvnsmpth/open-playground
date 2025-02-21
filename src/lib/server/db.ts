@@ -1,9 +1,9 @@
 import sqlite3 from "sqlite3";
-import { fromStore } from "svelte/store";
 
 export type Chat = {
     id: number
     title?: string
+    systemPrompt?: string
     frozen?: boolean
     createdAt: string;
 }
@@ -13,7 +13,7 @@ export type ChatMessage = {
     chatId: number;
     role: string;
     content: string;
-    createdAt: number;
+    createdAt?: number;
 }
 
 export type ChatMessageContent = {
@@ -21,11 +21,19 @@ export type ChatMessageContent = {
     content: string;
 }
 
+export type Usage = {
+    promptTokens: number;
+    completionTokens: number
+}
+
 export class DbService {
     private db: sqlite3.Database
 
     constructor() {
         this.db = new sqlite3.Database("chats.db");
+        this.db.on('trace', (sql) => {
+            console.log('SQL:', sql);
+        })
     }
 
     async init() {
@@ -95,7 +103,25 @@ export class DbService {
 
     async listChats(): Promise<Chat[]> {
         return new Promise((resolve, reject) => {
-            this.db.all("SELECT * FROM chats", (err, rows) => {
+            this.db.all("SELECT * FROM chats ORDER BY created_at DESC", (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    const chats = rows.map((row: any) => ({
+                        id: row.id,
+                        title: row.title,
+                        frozen: row.frozen,
+                        createdAt: row.created_at,
+                    }));
+                    resolve(chats);
+                }
+            });
+        });
+    }
+
+    async listFrozenChats(n: number = 1): Promise<Chat[]> {
+        return new Promise((resolve, reject) => {
+            this.db.all("SELECT * FROM chats WHERE frozen = true ORDER BY created_at DESC LIMIT ?", [n], (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -140,6 +166,29 @@ export class DbService {
                         createdAt: row.created_at,
                     }));
                     resolve(messages);
+                }
+            });
+        });
+    }
+
+    async getMessagesBatch(chatIds: number[]): Promise<ChatMessage[][]> {
+        const placeholders = chatIds.map(() => '?').join(',');
+        const sql = `SELECT * FROM messages WHERE chat_id IN (${placeholders}) ORDER BY created_at`;
+        return new Promise((resolve, reject) => {
+            this.db.all(sql, chatIds, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    const messages = rows.map((row: any) => ({
+                        id: row.id,
+                        chatId: row.chat_id,
+                        role: row.role,
+                        content: row.content,
+                        createdAt: row.created_at,
+                    }));
+                    console.log('Found messages:', messages.length)
+                    const messagesByChatId = chatIds.map(chatId => messages.filter(message => message.chatId === chatId));
+                    resolve(messagesByChatId);
                 }
             });
         });
