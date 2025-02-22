@@ -56,7 +56,7 @@
         name="message"
         rows={3}
         class={cn("flex-1 p-4 rounded-2xl focus-visible:ring-0 focus:outline-none resize-none bg-gray-100 text-sm lg:text-base", disabled && "cursor-not-allowed")}
-        placeholder={!disabled ? 'Type user message here...' : 'This chat is frozen'}
+        placeholder={!disabled ? 'Type your message here...' : 'This chat is frozen'}
         {disabled}
         onkeydown={handleKeyDown}
         bind:this={chatMsgInput}

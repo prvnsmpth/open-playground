@@ -49,6 +49,7 @@
 		"@humanspeak/svelte-markdown": "^0.7.17",
 		"date-fns": "^4.1.0",
 		"ollama": "^0.5.13",
-		"sqlite3": "^5.1.7"
+		"sqlite3": "^5.1.7",
+		"ulid": "^2.3.0"
 	}
 }

@@ -1,16 +1,23 @@
-import sqlite3 from "sqlite3";
+import sqlite3 from "sqlite3"
+import { ulid } from "ulid"
+
+export enum Entity {
+    Chat = 'c',
+    ChatMessage = 'cm',
+    Model = 'm',
+}
 
 export type Chat = {
-    id: number
+    id?: string
     title?: string
     systemPrompt?: string
     frozen?: boolean
-    createdAt: string;
+    createdAt?: string;
 }
 
 export type ChatMessage = {
-    id?: number;
-    chatId: number;
+    id?: string;
+    chatId: string;
     role: string;
     content: string;
     createdAt?: number;
@@ -26,11 +33,17 @@ export type Usage = {
     completionTokens: number
 }
 
+class IdGen {
+    static generate(entity: Entity): string {
+        return `${entity}_${ulid()}`
+    }
+}
+
 export class DbService {
     private db: sqlite3.Database
 
     constructor() {
-        this.db = new sqlite3.Database("chats.db");
+        this.db = new sqlite3.Database("playground.db");
         this.db.on('trace', (sql) => {
             console.log('SQL:', sql);
         })
@@ -38,31 +51,60 @@ export class DbService {
 
     async init() {
         this.db.serialize(() => {
-            this.db.run(`CREATE TABLE IF NOT EXISTS 
-                chats (
-                    id INTEGER PRIMARY KEY, 
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS chats (
+                    id TEXT PRIMARY KEY, 
                     title TEXT NULL,
+                    system_prompt TEXT NULL,
                     frozen BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )`);
-            this.db.run(`CREATE TABLE IF NOT EXISTS 
-                messages (
-                    id INTEGER PRIMARY KEY, 
-                    chat_id INTEGER, 
+                )
+            `);
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS messages (
+                    id TEXT PRIMARY KEY, 
+                    chat_id TEXT NOT NULL, 
                     role TEXT, 
                     content TEXT, 
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
                     FOREIGN KEY(chat_id) REFERENCES chats(id)
-                )`);
-
-            // Enable foreign key constraints
+                )
+            `);
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS models (
+                    id TEXT PRIMARY KEY,
+                    name TEXT,
+                    params BLOB
+                )
+            `)
             this.db.run("PRAGMA foreign_keys = ON");
         });
     }
 
+    private makeChat(row: any): Chat {
+        return {
+            id: row.id,
+            title: row.title,
+            systemPrompt: row.system_prompt,
+            frozen: row.frozen,
+            createdAt: row.created_at,
+        };
+    }
+
+    private makeChatMessage(row: any): ChatMessage {
+        return {
+            id: row.id,
+            chatId: row.chat_id,
+            role: row.role,
+            content: row.content,
+            createdAt: row.created_at,
+        };
+    }
+
     async createChat(): Promise<number> {
         return new Promise((resolve, reject) => {
-            this.db.run("INSERT INTO chats DEFAULT VALUES", function (err) {
+            const id = IdGen.generate(Entity.Chat)
+            this.db.run("INSERT INTO chats (id) VALUES (?)", [id], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -72,26 +114,32 @@ export class DbService {
         });
     }
 
-    async getChat(chatId: number): Promise<Chat> {
+    async getChat(chatId: string): Promise<Chat> {
         return new Promise((resolve, reject) => {
             this.db.get("SELECT * FROM chats WHERE id = ?", [chatId], (err, row: any) => {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve({
-                        id: row.id,
-                        title: row.title,
-                        frozen: row.frozen,
-                        createdAt: row.created_at,
-                    });
+                    resolve(this.makeChat(row));
                 }
             });
         })
     }
 
-    async updateChat(chatId: number, chat: Partial<Chat>): Promise<void> {
+    async updateChat(chatId: string, chat: Partial<Chat>): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.db.run("UPDATE chats SET title = ?, frozen = ? WHERE id = ?", [chat.title, chat.frozen, chatId], function (err) {
+            const clauses = []
+            if (chat.title !== undefined) {
+                clauses.push("title = ?")
+            }
+            if (chat.systemPrompt !== undefined) {
+                clauses.push("system_prompt = ?")
+            }
+            if (chat.frozen !== undefined) {
+                clauses.push("frozen = ?")
+            }
+            const clauseStr = clauses.join(", ")
+            this.db.run(`UPDATE chats SET ${clauseStr} WHERE id = ?`, [chat.title, chat.frozen, chatId], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -101,43 +149,22 @@ export class DbService {
         });
     }
 
-    async listChats(): Promise<Chat[]> {
+    async listChats(frozen?: boolean, offset: number = 0, limit: number = 50): Promise<Chat[]> {
+        const whereClause = frozen !== undefined ? "WHERE frozen = ?" : "";
+        const params = frozen !== undefined ? [frozen, limit, offset] : [limit, offset];
         return new Promise((resolve, reject) => {
-            this.db.all("SELECT * FROM chats ORDER BY created_at DESC", (err, rows) => {
+            this.db.all(`SELECT * FROM chats ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`, params, (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
-                    const chats = rows.map((row: any) => ({
-                        id: row.id,
-                        title: row.title,
-                        frozen: row.frozen,
-                        createdAt: row.created_at,
-                    }));
+                    const chats = rows.map(this.makeChat);
                     resolve(chats);
                 }
             });
         });
     }
 
-    async listFrozenChats(n: number = 1): Promise<Chat[]> {
-        return new Promise((resolve, reject) => {
-            this.db.all("SELECT * FROM chats WHERE frozen = true ORDER BY created_at DESC LIMIT ?", [n], (err, rows) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    const chats = rows.map((row: any) => ({
-                        id: row.id,
-                        title: row.title,
-                        frozen: row.frozen,
-                        createdAt: row.created_at,
-                    }));
-                    resolve(chats);
-                }
-            });
-        });
-    }
-
-    async deleteChat(chatId: number): Promise<void> {
+    async deleteChat(chatId: string): Promise<void> {
         return new Promise((resolve, reject) => {
             this.db.serialize(() => {
                 this.db.run("DELETE FROM messages WHERE chat_id = ?", [chatId]);
@@ -152,26 +179,20 @@ export class DbService {
         })
     }
 
-    async getMessages(chatId: number): Promise<ChatMessage[]> {
+    async getMessages(chatId: string): Promise<ChatMessage[]> {
         return new Promise((resolve, reject) => {
             this.db.all("SELECT * FROM messages WHERE chat_id = ?", [chatId], (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
-                    const messages = rows.map((row: any) => ({
-                        id: row.id,
-                        chatId,
-                        role: row.role, 
-                        content: row.content,
-                        createdAt: row.created_at,
-                    }));
+                    const messages = rows.map(this.makeChatMessage);
                     resolve(messages);
                 }
             });
         });
     }
 
-    async getMessagesBatch(chatIds: number[]): Promise<ChatMessage[][]> {
+    async getMessagesBatch(chatIds: string[]): Promise<ChatMessage[][]> {
         const placeholders = chatIds.map(() => '?').join(',');
         const sql = `SELECT * FROM messages WHERE chat_id IN (${placeholders}) ORDER BY created_at`;
         return new Promise((resolve, reject) => {
@@ -179,14 +200,7 @@ export class DbService {
                 if (err) {
                     reject(err);
                 } else {
-                    const messages = rows.map((row: any) => ({
-                        id: row.id,
-                        chatId: row.chat_id,
-                        role: row.role,
-                        content: row.content,
-                        createdAt: row.created_at,
-                    }));
-                    console.log('Found messages:', messages.length)
+                    const messages = rows.map(this.makeChatMessage);
                     const messagesByChatId = chatIds.map(chatId => messages.filter(message => message.chatId === chatId));
                     resolve(messagesByChatId);
                 }
@@ -194,7 +208,7 @@ export class DbService {
         });
     }
 
-    async addMessage(chatId: number, role: string, content: string): Promise<number> {
+    async addMessage(chatId: string, role: string, content: string): Promise<number> {
         return new Promise((resolve, reject) => {
             this.db.run("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", [chatId, role, content], function (err) {
                 if (err) {
@@ -206,7 +220,7 @@ export class DbService {
         });
     }
 
-    async updateMessage(chatId: number, messageId: number, content: string): Promise<void> {
+    async updateMessage(chatId: string, messageId: string, content: string): Promise<void> {
         return new Promise((resolve, reject) => {
             this.db.run("UPDATE messages SET content = ? WHERE chat_id = ? AND id = ?", [content, chatId, messageId], function (err) {
                 if (err) {
@@ -218,7 +232,7 @@ export class DbService {
         });
     }
 
-    async deleteMessage(chatId: number, messageId: number): Promise<void> {
+    async deleteMessage(chatId: string, messageId: string): Promise<void> {
         console.log('Deleting message', chatId, messageId)
         return new Promise((resolve, reject) => {
             this.db.run("DELETE FROM messages WHERE chat_id = ? AND id = ?", [chatId, messageId], function (err) {

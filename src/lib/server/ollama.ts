@@ -66,7 +66,6 @@ class OllamaClient {
 
     async loadScript() {
         this.baseScript = await fs.readFile('./src/sheets.py', 'utf8')
-        console.log('Loaded script', this.baseScript)
     }
 
     async listModels() {
@@ -82,7 +81,7 @@ class OllamaClient {
         return await this.db.createChat()
     }
 
-    async generateTitle(chatId: number): Promise<string> {
+    async generateTitle(chatId: string): Promise<string> {
         const chat = await this.db.getChat(chatId)
         const messages = await this.db.getMessages(chatId)
         const conversation = 
@@ -105,7 +104,6 @@ class OllamaClient {
         const response = resp.message.content
         const match = response.match(/<title>(.*?)<\/title>/)
         const title = match ? match[1] : 'Untitled Chat'
-        console.log('Generated title:', title)
         const updatedChat = { ...chat, title }
         await this.db.updateChat(chatId, updatedChat)
         return title
@@ -116,12 +114,11 @@ class OllamaClient {
         const otherModels = resp.models.map(m => m.name).filter(m => m !== model)
 
         for (const m of otherModels) {
-            console.log(`Stopping model ${m}...`)
             execSync(`ollama stop ${m}`)
         }
     }
 
-    async regenerateResponse(chatId: number, messageId: number, model: string = this.DEFAULT_MODEL) {
+    async regenerateResponse(chatId: string, messageId: string, model: string = this.DEFAULT_MODEL) {
         await this.ensureModel(model)
 
         const chat = await this.db.getChat(chatId)
@@ -170,7 +167,7 @@ class OllamaClient {
                     console.error('Error reading response:', err)
                 } finally {
                     if (responseTxt.length > 0) {
-                        await db.updateMessage(chat.id, targetMsg.id!, responseTxt)
+                        await db.updateMessage(chat.id!, targetMsg.id!, responseTxt)
                     }
                     controller.close()
                 }
@@ -198,17 +195,13 @@ class OllamaClient {
         }
 
         const script = `${this.baseScript}\n${code}`
-        console.log('Full script:', script)
 
         // Write the script to a file
         const scriptPath = 'script.py'
-        console.log('Writing script to:', scriptPath)
         await fs.writeFile(scriptPath, script)
 
-        console.log('Executing script:', scriptPath)
         try {
             const { stdout } = await exec(`python3 ${scriptPath}`)
-            console.log('Script output:', stdout)
             return stdout
         } catch (err: any) {
             console.error('Error executing script:', err)
@@ -217,11 +210,11 @@ class OllamaClient {
     }
 
     async fetchExamples(): Promise<ChatMessage[][]> {
-        const exampleChats = await db.listFrozenChats()
-        return await db.getMessagesBatch(exampleChats.map(c => c.id))
+        const exampleChats = await db.listChats(true, 0, 1)
+        return await db.getMessagesBatch(exampleChats.map(c => c.id!))
     }
 
-    async sendMessage(chatId: number, msg?: string, model: string = this.DEFAULT_MODEL) {
+    async sendMessage(chatId: string, msg?: string, model: string = this.DEFAULT_MODEL) {
         await this.ensureModel(model)
         const id = msg ? await this.db.addMessage(chatId, 'user', msg) : null
         const chat = await this.db.getChat(chatId)
@@ -246,7 +239,7 @@ class OllamaClient {
             controller.enqueue(encoder.encode('\n'))
         }
 
-        const runEvalLoop = async (controller: ReadableStreamDefaultController<any>, asstResponse: string, maxIters: number = 3) => {
+        const runEvalLoop = async (controller: ReadableStreamDefaultController<any>, asstResponse: string, maxIters: number = 5) => {
             let numIters = 0
             let currResp = asstResponse
             while (numIters < maxIters) {

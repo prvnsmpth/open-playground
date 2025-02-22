@@ -44,7 +44,7 @@
         }
     }
 
-    function updateLastMessageId(id: number) {
+    function updateLastMessageId(id: string) {
         const m = data.messages
         const n = data.messages.length
         data = {
@@ -72,7 +72,7 @@
                 messages: [
                     ...data.messages,
                     {
-                        chatId: data.chat.id,
+                        chatId: data.chat.id!,
                         role: 'assistant',
                         content: response,
                     }
@@ -87,7 +87,7 @@
             messages: [
                 ...data.messages,
                 {
-                    chatId: data.chat.id,
+                    chatId: data.chat.id!,
                     role: 'tool',
                     content: toolResponse,
                 }
@@ -104,7 +104,7 @@
         chatMsg = ''
         if (req.message) {
             addMessage({
-                chatId: data.chat.id,
+                chatId: data.chat.id!,
                 role: 'user',
                 content: req.message,
                 createdAt: Date.now()
@@ -113,7 +113,7 @@
         scrollToBottom()
 
         controller = new AbortController()
-        const resp = await fetch(`/api/chat/${data.chatId}/message`, {
+        const resp = await fetch(`/api/chat/${data.chat.id}/message`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -180,7 +180,7 @@
                     case 'user_msg_id':
                     case 'asst_msg_id':
                     case 'tool_msg_id':
-                        updateLastMessageId(sm.content as number)
+                        updateLastMessageId(sm.content)
                         break
                     case 'asst_response':
                         response += sm.content as string
@@ -221,7 +221,7 @@
     let scrollAnchor: HTMLDivElement | undefined = $state()
 
     function onMessageDelete() {
-        goto(`/chat/${data.chatId}`, { invalidateAll: true })
+        goto(`/chat/${data.chat.id}`, { invalidateAll: true })
     }
 
     const scrollToBottom = () => setTimeout(() => scrollAnchor?.scrollIntoView({ behavior: 'smooth' }), 0)
@@ -246,12 +246,12 @@
             {/each}
             {#if awaitingResponse}
                 <Message 
-                    message={{ chatId: data.chatId, role: 'assistant', content: 'Waiting...', createdAt: Date.now() }} 
+                    message={{ chatId: data.chat.id!, role: 'assistant', content: 'Waiting...', createdAt: Date.now() }} 
                     editable={false} />
             {/if}
             {#if awaitingToolResponse}
                <Message
-                    message={{ chatId: data.chatId, role: 'assistant', content: 'Executing code...', createdAt: Date.now() }}
+                    message={{ chatId: data.chat.id!, role: 'assistant', content: 'Executing code...', createdAt: Date.now() }}
                     editable={false} />
             {/if}
             <div bind:this={scrollAnchor}></div>
