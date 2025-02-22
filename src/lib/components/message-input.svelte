@@ -1,12 +1,10 @@
 <script lang="ts">
-    import { SendHorizontal as SendIcon, SquareArrowUp } from 'lucide-svelte';
-    import { onMount } from 'svelte';
-    import type { FormEventHandler } from 'svelte/elements';
     import { cn } from '$lib/utils'
     import Button from '$lib/components/ui/button/button.svelte'
 	import CircularLoader from './circular-loader.svelte';
+    import AutoTextarea from './auto-textarea.svelte'
 
-    export let chatMsgInput: HTMLTextAreaElement | undefined
+    export let chatMsgInput: HTMLTextAreaElement | null = null;
     export let chatMsg: string;
     export let onSubmit: () => void;
     export let disabled = false;
@@ -14,56 +12,34 @@
     export let onStop: () => void = () => {}
 
     // Callback when a response is received from the LLM
-    export const onResponse = () => {
-    };
-    let lineHeight: number;
+    export const onResponse = () => {};
 
-    onMount(() => {
-        lineHeight = parseInt(getComputedStyle(chatMsgInput!).lineHeight);
-        autoResize();
-    });
-
-    function autoResize() {
-        if (!lineHeight) {
-            return;
-        }
-        chatMsgInput!.style.height = 'auto';
-        const maxHeight = lineHeight * 7; // Max 7 rows of text
-        chatMsgInput!.style.height = Math.min(chatMsgInput!.scrollHeight, maxHeight) + 'px';
-    }
-
-    const handleInput: FormEventHandler<HTMLTextAreaElement> = (e) => {
-        autoResize();
-    };
+    let inputEl: AutoTextarea | null = null;
 
     async function handleSubmit(e: SubmitEvent) {
         e.preventDefault();
         onSubmit();
-        setTimeout(autoResize, 0);
+        setTimeout(() => inputEl?.autoResize(), 0);
     }
 
     async function handleKeyDown(e: KeyboardEvent) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             onSubmit();
-            setTimeout(autoResize, 0);
+            setTimeout(() => inputEl?.autoResize(), 0);
         }
     }
 </script>
 
-<form class="flex rounded-2xl mb-8 mt-0 items-end bg-gray-100 w-full max-w-screen-md" onsubmit={handleSubmit}>
-    <textarea
-        name="message"
-        rows={3}
-        class={cn("flex-1 p-4 rounded-2xl focus-visible:ring-0 focus:outline-none resize-none bg-gray-100 text-sm lg:text-base", disabled && "cursor-not-allowed")}
-        placeholder={!disabled ? 'Type your message here...' : 'This chat is frozen'}
+<form class="flex items-end rounded-2xl mb-8 mt-0 bg-gray-100 w-full max-w-screen-md" onsubmit={handleSubmit}>
+    <AutoTextarea
+        class={cn("w-full p-4 rounded-2xl focus-visible:ring-0 focus:outline-none resize-none bg-gray-100 text-sm lg:text-base", disabled && "cursor-not-allowed")}
+        placeholder={!disabled ? 'Type user message here...' : 'This chat is frozen'}
         {disabled}
         onkeydown={handleKeyDown}
-        bind:this={chatMsgInput}
         bind:value={chatMsg}
-        oninput={handleInput}
-        onpaste={autoResize}
-        oncut={autoResize}></textarea>
+        bind:this={inputEl}
+        bind:el={chatMsgInput} />
     {#if receivingResponse}
         <Button
             type="button"

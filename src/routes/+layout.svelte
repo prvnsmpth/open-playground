@@ -23,7 +23,7 @@
 </script>
 
 <main class="grid h-screen grid-cols-1 md:grid-cols-[280px_1fr]">
-	<div class="flex flex-col h-full border-r border-gray-100 bg-gray-50 overflow-y-auto">
+	<div class="flex flex-col h-full border-r border-muted bg-muted overflow-y-auto">
 		<div class="flex w-full justify-start items-center p-2 h-14 border-b">
 			<Button variant="ghost" size="sm" href="/" class="hover:bg-gray-200">
 				<SquarePen />

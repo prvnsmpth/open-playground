@@ -1,20 +1,69 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
     import MessageInput from '$lib/components/message-input.svelte'
+    import AutoTextarea from '$lib/components/auto-textarea.svelte';
+    import * as Accordion from '$lib/components/ui/accordion'
+	import { debounce } from '$lib/utils';
+	import { localStore, type AppState } from '$lib/index.svelte';
 
+    let appState = localStore('state', {} as AppState)
+    let systemPrompt = $state<string | null>(appState.value.systemPrompt ?? null)
     let chatMsg = $state('')
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
 
+
     async function onSubmit() {
-        const resp = await fetch('/api/chat', { method: 'POST' })
+        const resp = await fetch('/api/chat', { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ systemPrompt })
+        })
+        if (!resp.ok) {
+            console.error('Failed to create chat:', await resp.text())
+            return
+        }
+
         const { chatId } = await resp.json()
-        goto(`/chat/${chatId}`, { invalidateAll: true, state: { message: chatMsg } })
+        goto(`/chat/${chatId}`, { 
+            invalidateAll: true, 
+            state: { 
+                message: chatMsg 
+            } 
+        })
     }
+
+    const saveSysPrompt = debounce(async () => {
+        if (systemPrompt === null) {
+            return
+        }
+        appState.value = {
+            ...appState.value,
+            systemPrompt
+        }
+    }, 500)
 </script>
 
 <div class="flex-1 min-h-0 flex flex-col gap-4 items-center justify-center px-8">
     <div class="prose">
         <h2>Start a new chat</h2>
+    </div>
+    <div class="flex border prose w-full max-w-screen-md rounded-2xl p-4">
+        <Accordion.Root type="single" class="w-full">
+            <Accordion.Item value="reasoning" class="border-none">
+                <Accordion.Trigger class="hover:no-underline border-b-none text-sm py-0 w-full font-bold">
+                    System prompt
+                </Accordion.Trigger>
+                <Accordion.Content class="w-full pt-4">
+                    <AutoTextarea 
+                        bind:value={systemPrompt} 
+                        oninput={saveSysPrompt}
+                        class="w-full resize-none outline-none ring-0 text-base" 
+                        placeholder="You are a helpful AI agent..." />
+                </Accordion.Content>
+            </Accordion.Item>
+        </Accordion.Root>
     </div>
     <MessageInput bind:chatMsg bind:chatMsgInput {onSubmit} />
 </div>

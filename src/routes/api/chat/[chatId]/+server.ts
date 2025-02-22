@@ -8,7 +8,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
 
     try {
-        await db.deleteChat(parseInt(chatId))
+        await db.deleteChat(chatId)
         return new Response("OK", { status: 200 })
     } catch (err) {
         console.error('Failed to delete chat', err)
@@ -17,18 +17,20 @@ export const DELETE: RequestHandler = async ({ params }) => {
 }
 
 export const PATCH: RequestHandler = async ({ request, params }) => {
-    const { chatId: chatIdStr } = params
-    if (!chatIdStr) {
+    const { chatId } = params
+    if (!chatId) {
         throw error(400, 'Invalid chatId')
     }
 
-    const chatId = parseInt(chatIdStr)
     const chat = await db.getChat(chatId)
+    if (!chat) {
+        throw error(404, 'Chat not found')
+    }
+
     const reqBody = await request.json()
-    const updatedChat = { ...chat, ...reqBody }
 
     try {
-        await db.updateChat(chatId, updatedChat)
+        await db.updateChat(chatId, reqBody)
         return new Response("OK", { status: 200 })
     } catch (err) {
         console.error('Failed to update chat', err)

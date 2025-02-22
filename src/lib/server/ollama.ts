@@ -13,7 +13,7 @@ function stringifyExamples(examples: ChatMessage[][]): string {
     for (let i = 0; i < examples.length; i++) {
         examplesStr += `Example #${i + 1}:\n`
         const example = examples[i]
-        examplesStr += example.map((message) => `${message.role}: ${message.content}`).join("\n")
+        examplesStr += example.map(cm => `${cm.message.role}: ${cm.message.content}`).join("\n")
         examplesStr += "\n\n"
     }
     return examplesStr
@@ -72,7 +72,14 @@ class OllamaClient {
         if (this.models) {
             return this.models.map(m => m.name)
         }
+
         const resp = await this.client.list()
+        const existingModels = new Set(await this.db.listModels())
+        for (const m of resp.models) {
+            if (!existingModels.has(m.name)) {
+                await this.db.addModel(m.name)
+            }
+        }
         this.models = resp.models
         return resp.models.map(m => m.name)
     }
@@ -82,12 +89,11 @@ class OllamaClient {
     }
 
     async generateTitle(chatId: string): Promise<string> {
-        const chat = await this.db.getChat(chatId)
         const messages = await this.db.getMessages(chatId)
         const conversation = 
             messages
-                .filter(m => m.role === 'user' || m.role === 'assistant')
-                .map(m => `${m.role}: ${m.content}`)
+                .filter(m => m.message.role === 'user' || m.message.role === 'assistant')
+                .map(m => `${m.message.role}: ${m.message.content}`)
                 .join('\n')
         const runningModels = await this.client.ps()
         const model = runningModels.models[0]?.name || 'llama3.2:3b'
@@ -104,8 +110,7 @@ class OllamaClient {
         const response = resp.message.content
         const match = response.match(/<title>(.*?)<\/title>/)
         const title = match ? match[1] : 'Untitled Chat'
-        const updatedChat = { ...chat, title }
-        await this.db.updateChat(chatId, updatedChat)
+        await this.db.updateChat(chatId, { title })
         return title
     }
 
@@ -122,23 +127,30 @@ class OllamaClient {
         await this.ensureModel(model)
 
         const chat = await this.db.getChat(chatId)
+        if (!chat) {
+            throw new Error('Chat not found')
+        }
+
         const messages = await this.db.getMessages(chatId)
         const targetMsg = messages.find(m => m.id === messageId)
         if (!targetMsg || !targetMsg.id) {
             throw new Error('Target message not found')
         }
 
-        if (targetMsg.role !== 'assistant') {
+        if (targetMsg.message.role !== 'assistant') {
             throw new Error('Target message is not an assistant message')
         }
 
         const targetMsgIdx = messages.findIndex(m => m.id === messageId)
 
+        const systemPrompt = chat.systemPrompt ?? ''
         const resp = await this.client.chat({
             model,
             messages: [
-                { role: 'system', content: INSTRUCTIONS() },
-                ...messages.slice(0, targetMsgIdx)
+                { role: 'system', content: systemPrompt },
+                ...(messages
+                    .map(cm => cm.message)
+                    .slice(0, targetMsgIdx))
             ],
             stream: true,
             options: {
@@ -211,22 +223,25 @@ class OllamaClient {
 
     async fetchExamples(): Promise<ChatMessage[][]> {
         const exampleChats = await db.listChats(true, 0, 1)
-        return await db.getMessagesBatch(exampleChats.map(c => c.id!))
+        return await db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
     }
 
     async sendMessage(chatId: string, msg?: string, model: string = this.DEFAULT_MODEL) {
         await this.ensureModel(model)
-        const id = msg ? await this.db.addMessage(chatId, 'user', msg) : null
+        const id = msg ? await this.db.addMessage(chatId, 'user', msg, model) : null
         const chat = await this.db.getChat(chatId)
+        if (!chat) {
+            throw new Error('Chat not found')            
+        }
+
         const messages = await this.db.getMessages(chatId)
         const examples = await this.fetchExamples()
-        const systemPrompt = INSTRUCTIONS(examples)
-        console.log('System prompt:', systemPrompt)
+        const systemPrompt = chat.systemPrompt ?? ''
         const resp = await this.client.chat({
             model,
             messages: [
                 { role: 'system', content: systemPrompt },
-                ...messages
+                ...messages.map(cm => cm.message)
             ],
             stream: true,
             options: {
@@ -239,12 +254,15 @@ class OllamaClient {
             controller.enqueue(encoder.encode('\n'))
         }
 
-        const runEvalLoop = async (controller: ReadableStreamDefaultController<any>, asstResponse: string, maxIters: number = 5) => {
+        const runEvalLoop = async (
+            controller: ReadableStreamDefaultController<any>, 
+            asstResponse: string, 
+            maxIters: number = 5
+        ) => {
             let numIters = 0
             let currResp = asstResponse
             while (numIters < maxIters) {
                 const codeBlocks = this.extractCodeBlocks(currResp)
-                console.log(`Found ${codeBlocks.length} code blocks`)
                 if (codeBlocks.length === 0) {
                     break
                 }
@@ -253,15 +271,16 @@ class OllamaClient {
                 sendJson(controller, { type: 'tool_exec_start', content: 'Executing code...' })
                 const output = await this.executeCode(codeStr)
 
-                const toolOutputId = await db.addMessage(chatId, 'tool', output)
+                const toolOutputId = await db.addMessage(chatId, 'tool', output, model)
                 sendJson(controller, { type: 'tool', content: output })
                 sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
 
+                const messages = await db.getMessages(chatId)
                 const resp = await this.client.chat({
                     model,
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        ...await this.db.getMessages(chatId),
+                        ...messages.map(cm => cm.message)
                     ],
                     stream: true,
                     options: {
@@ -282,7 +301,7 @@ class OllamaClient {
                     }
                 }
 
-                const asstRespId = await db.addMessage(chatId, 'assistant', currResp)
+                const asstRespId = await db.addMessage(chatId, 'assistant', currResp, model)
                 sendJson(controller, { type: 'asst_msg_id', content: asstRespId })
                 numIters++
             }
@@ -290,16 +309,15 @@ class OllamaClient {
 
         let responseTxt = ''
         const lastMsg = messages[messages.length - 1]
-        if (lastMsg?.role === 'assistant') {
+        if (lastMsg?.message.role === 'assistant') {
             // We are continuing the last assistant message
-            responseTxt = lastMsg.content
+            responseTxt = lastMsg.message.content
         }
-
-        let asstIdSent = false
 
         const encoder = new TextEncoder()
         const generateTitle = async () => await this.generateTitle(chatId)
         let streamCancelled = false
+        let asstIdSent = false
         const stream = new ReadableStream({
             async start(controller) {
                 try {
@@ -320,15 +338,14 @@ class OllamaClient {
                         // Send message ID right after the first chunk
                         if (!asstIdSent) {
                             let asstMsgId
-                            if (lastMsg?.role === 'assistant') {
+                            if (lastMsg?.message.role === 'assistant') {
                                 asstMsgId = lastMsg.id!
                             } else {
-                                asstMsgId = await db.addMessage(chatId, 'assistant', responseTxt)
+                                asstMsgId = await db.addMessage(chatId, 'assistant', responseTxt, model)
                             }
                             sendJson(controller, { type: 'asst_msg_id', content: asstMsgId })
                             asstIdSent = true
                         }
-
                     }
                 } catch (err) {
                     if (err instanceof DOMException && err.name === 'AbortError') {
@@ -340,10 +357,10 @@ class OllamaClient {
                     const finalMessages = await db.getMessages(chatId)
                     const lastMsg = finalMessages[finalMessages.length - 1]
                     if (responseTxt.length > 0) {
-                        if (lastMsg?.role === 'assistant') {
+                        if (lastMsg?.message.role === 'assistant') {
                             await db.updateMessage(chatId, lastMsg.id!, responseTxt)
                         } else {
-                            await db.addMessage(chatId, 'assistant', responseTxt)
+                            await db.addMessage(chatId, 'assistant', responseTxt, model)
                         }
                         try {
                             await runEvalLoop(controller, responseTxt)

@@ -8,6 +8,9 @@
     import { localStore, type AppState } from '$lib/index.svelte';
 	import type { StreamMessage } from '$lib';
 	import type { ChatMessage, Usage } from '$lib/server/db';
+    import * as Accordion from '$lib/components/ui/accordion'
+    import AutoTextarea from '$lib/components/auto-textarea.svelte';
+	import { debounce } from '$lib/utils';
 
     let chatMsg = $state('') 
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
@@ -20,7 +23,6 @@
 
         const pageState = page.state as any
         if (data.messages.length === 0 && pageState.message) {
-            console.log('Starting new chat, sending first message...')
             chatMsg = pageState.message
             onSubmit()
         }
@@ -58,12 +60,18 @@
 
     function updateAsstResponse(response: string) {
         const lastMsg = data.messages[data.messages.length - 1]
-        if (lastMsg?.role === 'assistant') {
+        if (lastMsg?.message.role === 'assistant') {
             data = {
                 ...data,
                 messages: [
                     ...data.messages.slice(0, data.messages.length - 1),
-                    { ...lastMsg, content: response }
+                    {
+                        ...lastMsg, 
+                        message: {
+                            ...lastMsg.message, 
+                            content: response 
+                        } 
+                    }
                 ]
             }
         } else {
@@ -73,8 +81,11 @@
                     ...data.messages,
                     {
                         chatId: data.chat.id!,
-                        role: 'assistant',
-                        content: response,
+                        messageSeqNum: data.messages.length + 1,
+                        message: {
+                            role: 'assistant',
+                            content: response
+                        }
                     }
                 ]
             }
@@ -88,8 +99,11 @@
                 ...data.messages,
                 {
                     chatId: data.chat.id!,
-                    role: 'tool',
-                    content: toolResponse,
+                    messageSeqNum: data.messages.length + 1,
+                    message: {
+                        role: 'tool',
+                        content: toolResponse
+                    }
                 }
             ]
         }
@@ -105,8 +119,11 @@
         if (req.message) {
             addMessage({
                 chatId: data.chat.id!,
-                role: 'user',
-                content: req.message,
+                messageSeqNum: data.messages.length + 1,
+                message: {
+                    role: 'user',
+                    content: req.message
+                },
                 createdAt: Date.now()
             })
         }
@@ -137,8 +154,8 @@
 
         let response = ''
         const lastMsg = data.messages[data.messages.length - 1]
-        if (lastMsg.role === 'assistant') {
-            response = lastMsg.content
+        if (lastMsg.message.role === 'assistant') {
+            response = lastMsg.message.content
         }
 
         let partialChunk = ''
@@ -232,26 +249,65 @@
         awaitingResponse = false
         streamingResponse = false
     }
+
+    const updateSystemPrompt = debounce(async () => {
+        await fetch(`/api/chat/${data.chat.id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ systemPrompt: data.chat.systemPrompt })
+        })
+    }, 500)
 </script>
 
 <div class="flex-1 min-h-0 flex flex-col items-center px-8">
     <div class="flex-1 flex flex-col items-center py-8 w-full overflow-y-auto">
+        <div class="flex mb-8 border prose w-full max-w-screen-md rounded-lg p-4">
+            <Accordion.Root type="single" class="w-full">
+                <Accordion.Item value="reasoning" class="border-none">
+                    <Accordion.Trigger class="hover:no-underline border-b-none text-sm py-0 w-full font-bold">
+                        System prompt
+                    </Accordion.Trigger>
+                    <Accordion.Content class="w-full pt-4">
+                        <AutoTextarea 
+                            bind:value={data.chat.systemPrompt} 
+                            oninput={updateSystemPrompt}
+                            class="w-full resize-none outline-none ring-0" 
+                            placeholder="You are a helpful AI agent..." />
+                    </Accordion.Content>
+                </Accordion.Item>
+            </Accordion.Root>
+        </div>
         <div class="max-w-screen-md flex flex-col gap-2 pb-20 w-full">
             {#each data.messages as message, idx}
                 <Message 
-                    {message} 
+                    chatMessage={message} 
                     {onMessageDelete} 
                     editable={!data.chat.frozen} 
                 />
             {/each}
             {#if awaitingResponse}
                 <Message 
-                    message={{ chatId: data.chat.id!, role: 'assistant', content: 'Waiting...', createdAt: Date.now() }} 
+                    chatMessage={{ 
+                        chatId: data.chat.id!, 
+                        messageSeqNum: data.messages.length + 1,
+                        message: { role: 'assistant', content: 'Waiting...', }, 
+                        createdAt: Date.now() 
+                    }} 
                     editable={false} />
             {/if}
             {#if awaitingToolResponse}
                <Message
-                    message={{ chatId: data.chat.id!, role: 'assistant', content: 'Executing code...', createdAt: Date.now() }}
+                    chatMessage={{ 
+                        chatId: data.chat.id!, 
+                        messageSeqNum: data.messages.length + 1,
+                        message: {
+                            role: 'assistant', 
+                            content: 'Executing code...', 
+                        },
+                        createdAt: Date.now() 
+                    }}
                     editable={false} />
             {/if}
             <div bind:this={scrollAnchor}></div>

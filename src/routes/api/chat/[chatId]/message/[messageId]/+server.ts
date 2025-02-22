@@ -3,13 +3,10 @@ import { error, type RequestHandler } from "@sveltejs/kit"
 import { ollamaClient } from "$lib/server/ollama"
 
 export const PUT: RequestHandler = async ({ request, params }) => {
-    const { chatId: chatIdStr, messageId: messageIdStr } = params
-    if (!chatIdStr || !messageIdStr) {
+    const { chatId, messageId } = params
+    if (!chatId || !messageId) {
         throw error(400, 'Invalid chatId or messageId')
     }
-
-    const chatId = parseInt(chatIdStr)
-    const messageId = parseInt(messageIdStr)
 
     const { regenerate = false, content, model } = await request.json()
 
@@ -39,7 +36,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
 
     try {
-        await db.deleteMessage(parseInt(chatId), parseInt(messageId))
+        await db.deleteMessage(chatId, messageId)
         return new Response("OK", { status: 200 })
     } catch (err) {
         console.error('Failed to delete message', err)

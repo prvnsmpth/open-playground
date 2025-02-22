@@ -8,12 +8,12 @@
     import * as Accordion from '$lib/components/ui/accordion'
 
     interface Props {
-        message: ChatMessage
+        chatMessage: ChatMessage
         editable?: boolean
         onMessageDelete?: () => void
     }
 
-    let { message, editable = true, onMessageDelete }: Props = $props();
+    let { chatMessage, editable = true, onMessageDelete }: Props = $props();
 
     let editMode = $state(false)
     let editedContent: string | null = $state(null)
@@ -38,13 +38,13 @@
     }, 100)
 
     async function updateMessage() {
-        if (!editedContent || editedContent === message.content) {
+        if (!editedContent || editedContent === chatMessage.message.content) {
             console.log('No update required.')
             return
         }
 
         console.log('Updating comment content...')
-        await fetch(`/api/chat/${message.chatId}/message/${message.id}`, {
+        await fetch(`/api/chat/${chatMessage.chatId}/message/${chatMessage.id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -52,13 +52,13 @@
             body: JSON.stringify({ content: editedContent })
         })
 
-        message.content = editedContent
+        chatMessage.message.content = editedContent
         editedContent = null
     }
 
     async function deleteMessage() {
-        if (message.id) {
-            const resp = await fetch(`/api/chat/${message.chatId}/message/${message.id}`, {
+        if (chatMessage.id) {
+            const resp = await fetch(`/api/chat/${chatMessage.chatId}/message/${chatMessage.id}`, {
                 method: 'DELETE'
             })
             if (!resp.ok) {
@@ -84,6 +84,7 @@
     }
 
     function splitReasoning() {
+        const message = chatMessage.message
         if (!message.content.startsWith('<think>')) {
             return [null, message.content]
         }
@@ -100,7 +101,7 @@
     }
 </script>
 
-{#if message.role === 'user'}
+{#if chatMessage.message.role === 'user'}
     <div class="group flex gap-2 justify-end items-center">
         {#if editable && !editMode}
             <div class="flex gap-1 py-2 text-muted-foreground invisible group-hover:visible">
@@ -116,7 +117,7 @@
             contenteditable={editMode}
             oninput={handleInput}
         >
-            {message.content}
+            {chatMessage.message.content}
             {#if editMode}
                 <div class="flex gap-2 justify-end py-2">
                     <Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
@@ -131,7 +132,7 @@
             {/if}
         </div>
     </div>
-{:else if message.role === 'assistant'}
+{:else if chatMessage.message.role === 'assistant'}
     <div class="flex gap-4 items-start py-4">
         <div class="rounded-full bg-muted p-2">
             <Bot class="w-6 h-6 text-muted-foreground" />
@@ -140,7 +141,7 @@
             <div class="self-start prose">
                 {#if editMode}
                     <div contenteditable="true" oninput={handleInput}>
-                        <pre class="whitespace-pre-wrap my-0">{message.content}</pre>
+                        <pre class="whitespace-pre-wrap my-0">{chatMessage.message.content}</pre>
                     </div>
                     <div class="flex gap-2 justify-end py-2">
                         <Button variant="outline" size="sm" onclick={cancelEdit}>Cancel</Button>
@@ -199,7 +200,7 @@
         </div>
         <div class="flex-1 flex flex-col items-start group py-2">
             <div class="self-start prose">
-                <SvelteMarkdown source={`\`\`\`\n${message.content || 'No output'}\n\`\`\``} />
+                <SvelteMarkdown source={`\`\`\`\n${chatMessage.message.content || 'No output'}\n\`\`\``} />
             </div>
             {#if editable}
                 <div class="flex gap-1 py-2 text-muted-foreground invisible group-hover:visible">

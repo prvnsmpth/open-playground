@@ -1,14 +1,11 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import Button from '$lib/components/ui/button/button.svelte';
     import { page } from '$app/state';
+    import Button from '$lib/components/ui/button/button.svelte';
+    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+    import type { Chat } from '$lib/server/db';
     import { cn } from '$lib/utils';
-    import { Trash2, EllipsisVertical, Snowflake, Copy } from 'lucide-svelte';
-    import * as Popover from '$lib/components/ui/popover'
-    import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
-	import type { Chat } from '$lib/server/db';
-	import { GoogleGenerativeAI } from '@google/generative-ai';
-	import { Portal } from 'bits-ui';
+    import { Copy, EllipsisVertical, Snowflake, Trash2 } from 'lucide-svelte';
 
     type Props = {
         chat: Chat
@@ -50,7 +47,7 @@
     let dropdownOpen = $state(false)
 </script>
 
-<div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg transition-colors", parseInt(page.params.chatId) === chat.id && 'bg-gray-200')}>
+<div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg transition-colors", page.params.chatId === chat.id && 'bg-gray-200')}>
     <a href={`/chat/${chat.id}`} class="flex-1 py-3 pl-3 flex gap-2 items-center overflow-hidden whitespace-nowrap text-ellipsis">
         <div class={cn("text-sm", chat.frozen ? "text-blue-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
         {#if chat.frozen}

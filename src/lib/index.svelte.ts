@@ -1,7 +1,8 @@
 import { browser } from '$app/environment';
 
 export type AppState = {
-    model?: string
+    model?: string,
+    systemPrompt?: string
 }
 
 export class LocalStore<T> {

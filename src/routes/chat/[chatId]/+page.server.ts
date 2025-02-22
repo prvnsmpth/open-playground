@@ -7,6 +7,10 @@ export const load: PageServerLoad = async ({ params }) => {
         throw error(404, 'Chat not found')
     }
     const chat = await db.getChat(params.chatId)
+    if (!chat) {
+        throw error(404, 'Chat not found')
+    }
+
     const messages = await db.getMessages(params.chatId)
 
     return {

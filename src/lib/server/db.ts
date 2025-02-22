@@ -4,7 +4,6 @@ import { ulid } from "ulid"
 export enum Entity {
     Chat = 'c',
     ChatMessage = 'cm',
-    Model = 'm',
 }
 
 export type Chat = {
@@ -18,8 +17,8 @@ export type Chat = {
 export type ChatMessage = {
     id?: string;
     chatId: string;
-    role: string;
-    content: string;
+    messageSeqNum: number;
+    message: ChatMessageContent;
     createdAt?: number;
 }
 
@@ -64,16 +63,17 @@ export class DbService {
                 CREATE TABLE IF NOT EXISTS messages (
                     id TEXT PRIMARY KEY, 
                     chat_id TEXT NOT NULL, 
-                    role TEXT, 
-                    content TEXT, 
+                    message_seq_num INTEGER NOT NULL,
+                    message JSON NOT NULL,
+                    model TEXT NOT NULL, 
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-                    FOREIGN KEY(chat_id) REFERENCES chats(id)
+                    FOREIGN KEY(chat_id) REFERENCES chats(id),
+                    FOREIGN KEY(model) REFERENCES models(name)
                 )
             `);
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS models (
-                    id TEXT PRIMARY KEY,
-                    name TEXT,
+                    name TEXT PRIMARY KEY,
                     params BLOB
                 )
             `)
@@ -95,30 +95,32 @@ export class DbService {
         return {
             id: row.id,
             chatId: row.chat_id,
-            role: row.role,
-            content: row.content,
+            messageSeqNum: row.message_seq_num,
+            message: JSON.parse(row.message),
             createdAt: row.created_at,
         };
     }
 
-    async createChat(): Promise<number> {
+    async createChat(systemPrompt: string | null = null): Promise<string> {
         return new Promise((resolve, reject) => {
             const id = IdGen.generate(Entity.Chat)
-            this.db.run("INSERT INTO chats (id) VALUES (?)", [id], function (err) {
+            this.db.run("INSERT INTO chats (id, system_prompt) VALUES (?, ?)", [id, systemPrompt], function (err) {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(this.lastID);
+                    resolve(id);
                 }
             });
         });
     }
 
-    async getChat(chatId: string): Promise<Chat> {
+    async getChat(chatId: string): Promise<Chat | null> {
         return new Promise((resolve, reject) => {
             this.db.get("SELECT * FROM chats WHERE id = ?", [chatId], (err, row: any) => {
                 if (err) {
                     reject(err);
+                } else if (!row) {
+                    resolve(null);
                 } else {
                     resolve(this.makeChat(row));
                 }
@@ -129,17 +131,22 @@ export class DbService {
     async updateChat(chatId: string, chat: Partial<Chat>): Promise<void> {
         return new Promise((resolve, reject) => {
             const clauses = []
+            const params = []
             if (chat.title !== undefined) {
                 clauses.push("title = ?")
+                params.push(chat.title)
             }
             if (chat.systemPrompt !== undefined) {
                 clauses.push("system_prompt = ?")
+                params.push(chat.systemPrompt)
             }
             if (chat.frozen !== undefined) {
                 clauses.push("frozen = ?")
+                params.push(chat.frozen)
             }
+            params.push(chatId)
             const clauseStr = clauses.join(", ")
-            this.db.run(`UPDATE chats SET ${clauseStr} WHERE id = ?`, [chat.title, chat.frozen, chatId], function (err) {
+            this.db.run(`UPDATE chats SET ${clauseStr} WHERE id = ?`, params, function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -208,27 +215,67 @@ export class DbService {
         });
     }
 
-    async addMessage(chatId: string, role: string, content: string): Promise<number> {
+    private async getNextMessageSeqNum(chatId: string): Promise<number> {
         return new Promise((resolve, reject) => {
-            this.db.run("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", [chatId, role, content], function (err) {
+            this.db.get("SELECT MAX(message_seq_num) as max_seq_num FROM messages WHERE chat_id = ?", [chatId], (err, row: any) => {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(this.lastID);
+                    if (!row) {
+                        resolve(1);
+                    } else {
+                        resolve(row.max_seq_num + 1);
+                    }
+                }
+            });
+        });
+    }
+
+    async addMessage(chatId: string, role: string, content: string, model: string): Promise<string> {
+        const message = { role, content }
+        const messageSeqNum = await this.getNextMessageSeqNum(chatId)
+        const messageId = IdGen.generate(Entity.ChatMessage)
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                "INSERT INTO messages (id, chat_id, message_seq_num, message, model) VALUES (?, ?, ?, ?, ?)", 
+                [messageId, chatId, messageSeqNum, JSON.stringify(message), model], 
+                function (err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(messageId);
+                    }
+                }
+            );
+        });
+    }
+
+    async getMessage(messageId: string): Promise<ChatMessage> {
+        return new Promise((resolve, reject) => {
+            this.db.get("SELECT * FROM messages WHERE id = ?", [messageId], (err, row: any) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(this.makeChatMessage(row));
                 }
             });
         });
     }
 
     async updateMessage(chatId: string, messageId: string, content: string): Promise<void> {
+        const chatMessage = await this.getMessage(messageId)
+        const updatedMessage = { ...chatMessage.message, content }
         return new Promise((resolve, reject) => {
-            this.db.run("UPDATE messages SET content = ? WHERE chat_id = ? AND id = ?", [content, chatId, messageId], function (err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
+            this.db.run("UPDATE messages SET message = ? WHERE chat_id = ? AND id = ?", 
+                [JSON.stringify(updatedMessage), chatId, messageId], 
+                function (err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
                 }
-            });
+            );
         });
     }
 
@@ -240,6 +287,30 @@ export class DbService {
                     reject(err);
                 } else {
                     resolve();
+                }
+            });
+        });
+    }
+
+    async addModel(model: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.db.run("INSERT INTO models (name) VALUES (?)", [model], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve()
+                }
+            });
+        });
+    }
+
+    async listModels(): Promise<string[]> {
+        return new Promise((resolve, reject) => {
+            this.db.all("SELECT name FROM models", [], function (err, rows: any[]) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows.map(row => row.name));
                 }
             });
         });
