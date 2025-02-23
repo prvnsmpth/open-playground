@@ -134,11 +134,18 @@ class OllamaClient {
             async start(controller) {
                 function sendJson(json: StreamMessage) {
                     controller.enqueue(encoder.encode(JSON.stringify(json)))
+                    controller.enqueue(encoder.encode('\n'))
                 }
+
                 try {
                     for await (const chunk of resp) {
-                        if (chunk.message.content) {
-                            responseTxt += chunk.message.content
+                        responseTxt += chunk.message.content
+                        if (chunk.done) {
+                            const usage = {
+                                promptTokens: chunk.prompt_eval_count,
+                                completionTokens: chunk.eval_count,
+                            }
+                            sendJson({ type: 'usage', content: usage }) 
                         }
                         sendJson({ type: 'asst_response', content: chunk.message.content || '' })
                     }

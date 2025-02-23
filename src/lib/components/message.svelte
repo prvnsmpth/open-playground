@@ -12,9 +12,10 @@
         chatMessage: ChatMessage
         editable?: boolean
         onMessageDelete?: () => void
+        onMessageRegenerate?: (msgId: string) => void
     }
 
-    let { chatMessage, editable = true, onMessageDelete }: Props = $props();
+    let { chatMessage, editable = true, onMessageDelete, onMessageRegenerate }: Props = $props();
 
     let editMode = $state(false)
     let editedContent: string | null = $state(null)
@@ -196,7 +197,7 @@
                         </Button>
                     </Tooltip>
                     <Tooltip tooltip="Regenerate">
-                        <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3">
+                        <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={() => onMessageRegenerate?.(chatMessage.id!)}>
                             <RefreshCcw />
                         </Button>
                     </Tooltip>
@@ -217,9 +218,6 @@
                 <div class="flex gap-1 py-2 text-muted-foreground invisible group-hover:visible">
                     <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
                         <Trash2 />
-                    </Button>
-                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3">
-                        <RefreshCcw />
                     </Button>
                 </div>
             {/if}

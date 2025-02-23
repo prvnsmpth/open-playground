@@ -39,8 +39,24 @@
 		dropdownOpen = false
 	}
 
-    async function cloneChat() {
+    async function cloneChat(chatId: string) {
+        const resp = await fetch(`/api/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                clone: true, 
+                chatId 
+            })
+        })
+        if (!resp.ok) {
+            console.error('Failed to clone chat:', await resp.text())
+            return
+        }
 
+        const { chatId: newChatId } = await resp.json()
+        goto(`/chat/${newChatId}`, { invalidateAll: true })
         dropdownOpen = false
     }
 
@@ -66,7 +82,7 @@
                 <Snowflake />
                 Freeze
             </DropdownMenu.Item>
-            <DropdownMenu.Item>
+            <DropdownMenu.Item onclick={() => cloneChat(chat.id!)}>
                 <Copy />
                 Clone
             </DropdownMenu.Item>

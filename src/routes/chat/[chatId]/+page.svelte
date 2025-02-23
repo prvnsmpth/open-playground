@@ -27,6 +27,7 @@
     })
 
     let awaitingResponse = $state(false)
+    let awaitingRegeneration = $state(false)
     let awaitingToolResponse = $state(false)
     let streamingResponse = $state(false)
 
@@ -60,20 +61,31 @@
         }
     }
 
-    function updateAsstResponse(response: string) {
-        const lastMsg = data.messages[data.messages.length - 1]
-        if (lastMsg?.message.role === 'assistant') {
+    function updateAsstResponse(response: string, asstMsgId?: string) {
+        let targetMsg
+        let targetMsgIdx
+        if (asstMsgId) {
+            targetMsgIdx = data.messages.findIndex(m => m.id === asstMsgId)
+            targetMsg = data.messages[targetMsgIdx]
+        } else {
+            // We will update the last message, or if it's not an assistant message, we will add it
+            targetMsg = data.messages[data.messages.length - 1]
+            targetMsgIdx = data.messages.length - 1
+        }
+
+        if (targetMsg?.message.role === 'assistant') {
             data = {
                 ...data,
                 messages: [
-                    ...data.messages.slice(0, data.messages.length - 1),
+                    ...data.messages.slice(0, targetMsgIdx),
                     {
-                        ...lastMsg, 
+                        ...targetMsg, 
                         message: {
-                            ...lastMsg.message, 
+                            ...targetMsg.message, 
                             content: response 
                         } 
-                    }
+                    },
+                    ...data.messages.slice(targetMsgIdx + 1)
                 ]
             }
         } else {
@@ -247,6 +259,89 @@
         goto(`/chat/${data.chat.id}`, { invalidateAll: true })
     }
 
+    async function onMessageRegenerate(messageId: string) {
+        if (!appState.value?.model) {
+            console.error('No model selected')
+            return
+        }
+
+        awaitingRegeneration = true
+        const resp = await fetch(`/api/chat/${data.chat.id}/message/${messageId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                regenerate: true,
+                model: appState.value.model
+            })
+        })
+
+        if (!resp.ok) {
+            console.error('Failed to regenerate message')
+            return
+        }
+
+        const reader = resp.body?.getReader()
+        if (!reader) {
+            console.error('Failed to get reader')
+            return
+        } 
+
+        let partialChunk = ''
+        let response = ''
+        const decoder = new TextDecoder()
+        while (true) {
+            let chunk: string
+            try {
+                const { done, value } = await reader.read()
+                if (done) {
+                    streamingResponse = false
+                    break
+                }
+
+                if (awaitingResponse) {
+                    // On receiving the first chunk, we need to clear the existing content of the message
+                    updateAsstResponse('', messageId)
+                    awaitingRegeneration = false
+                    streamingResponse = true
+                }
+
+                chunk = decoder.decode(value)
+            } catch (err) {
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                    console.log('Stream cancelled')
+                }
+                break
+            }
+
+            const streamMessages: StreamMessage[] = (partialChunk + chunk).split('\n')
+                .map(line => {
+                    try {
+                        return JSON.parse(line)
+                    } catch (err) {
+                        partialChunk = line
+                        return null
+                    }
+                })
+                .filter(m => m !== null)
+            
+            for (const message of streamMessages) {
+                if (message.type === 'asst_response') {
+                    response += message.content
+                } else if (message.type === 'usage') {
+                    usage = message.content
+                } else {
+                    console.error('Unexpected message type', message)
+                }
+            }
+
+            if (response.length > 0) {
+                updateAsstResponse(response, messageId)
+            }
+        }
+    }
+
     const scrollToBottom = () => setTimeout(() => scrollAnchor?.scrollIntoView({ behavior: 'smooth' }), 0)
 
     async function onStreamingStop() {
@@ -278,7 +373,7 @@
                     <Accordion.Content class="w-full pt-4">
                         <AutoTextarea 
                             bind:value={data.chat.systemPrompt} 
-                            oninput={updateSystemPrompt}
+                            onInput={updateSystemPrompt}
                             class="w-full resize-none outline-none ring-0" 
                             placeholder="You are a helpful AI agent..." />
                     </Accordion.Content>
@@ -290,6 +385,7 @@
                 <Message 
                     chatMessage={message} 
                     {onMessageDelete} 
+                    {onMessageRegenerate}
                     editable={!data.chat.frozen} 
                 />
             {/each}

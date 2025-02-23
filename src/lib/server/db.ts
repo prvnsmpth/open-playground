@@ -19,6 +19,7 @@ export type ChatMessage = {
     chatId: string;
     messageSeqNum: number;
     message: ChatMessageContent;
+    model?: string
     createdAt?: number;
 }
 
@@ -97,6 +98,7 @@ export class DbService {
             chatId: row.chat_id,
             messageSeqNum: row.message_seq_num,
             message: JSON.parse(row.message),
+            model: row.model,
             createdAt: row.created_at,
         };
     }

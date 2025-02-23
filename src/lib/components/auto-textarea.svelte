@@ -6,6 +6,7 @@
     let { 
         value = $bindable(), 
         el = $bindable(), 
+        onInput = () => {},
         ...rest 
     } = $props()
 
@@ -15,6 +16,7 @@
     });
 
     export function autoResize() {
+        console.log('autoResize')
         if (!lineHeight || !el) {
             console.log('lineHeight or el is null')
             return;
@@ -32,7 +34,7 @@
     bind:value
     rows={3}
     oninput={() => {
-        rest.oninput?.()
+        onInput()
         autoResize()
     }}
     onpaste={autoResize}
