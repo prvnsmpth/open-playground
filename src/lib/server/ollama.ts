@@ -8,39 +8,6 @@ import * as fs from 'node:fs/promises'
 
 const exec = util.promisify(child_process.exec)
 
-function stringifyExamples(examples: ChatMessage[][]): string {
-    let examplesStr = ''
-    for (let i = 0; i < examples.length; i++) {
-        examplesStr += `Example #${i + 1}:\n`
-        const example = examples[i]
-        examplesStr += example.map(cm => `${cm.message.role}: ${cm.message.content}`).join("\n")
-        examplesStr += "\n\n"
-    }
-    return examplesStr
-}
-
-const INSTRUCTIONS = (examples: ChatMessage[][] = []) => `
-You are an expert Google Sheets agent. Your task is to generate Python code using the Google Python library for Sheets to perform the tasks request by the user.
-
-Make the following assumptions while generating the code:
-1. Ignore credentials setup, imports etc. Just generate the relevant portion of the code.
-2. Assume you have access to a SHEET_ID variable that points to the current spreadsheet ID
-3. Assume you have access to a 'sheet' variable that was obtained by doing:
-
-service = build("sheets", "v4", credentials=delegated_creds)
-sheet = service.spreadsheets()
-
-After you respond with code, a code interpreter will take over and come back to you with the results of executing said code. You can then use the code result to answer/respond to the user's original query.
-
-If there are any errors running the code you generate, you will be provided with the error message. Correct the error and come back with the fixed code.
-
-<example>
-${stringifyExamples(examples)}
-</example>
-
-The above is just an example. You will be working with a different Google Sheet, so you'll have to work with the actual data in the sheet.
-`
-
 const TITLE_INSTRUCTIONS = `
 You are given the first few messages between a human and an AI assistant. Your task is to come up with a nice short title for the conversation.
 Keep it only a few words long, and make sure it captures the essence of the conversation.
@@ -51,7 +18,6 @@ E.g., <title>How to win friends</title>.
 class OllamaClient {
     private client: Ollama
     private db: DbService
-    public DEFAULT_MODEL = 'mistral-small:24b'
 
     private models?: ModelResponse[]
 
@@ -62,6 +28,7 @@ class OllamaClient {
         this.db = db
 
         this.loadScript()
+        this.listModels()
     }
 
     async loadScript() {
@@ -123,7 +90,7 @@ class OllamaClient {
         }
     }
 
-    async regenerateResponse(chatId: string, messageId: string, model: string = this.DEFAULT_MODEL) {
+    async regenerateResponse(chatId: string, messageId: string, model: string) {
         await this.ensureModel(model)
 
         const chat = await this.db.getChat(chatId)
@@ -226,7 +193,7 @@ class OllamaClient {
         return await db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
     }
 
-    async sendMessage(chatId: string, msg?: string, model: string = this.DEFAULT_MODEL) {
+    async sendMessage(chatId: string, msg: string | null, model: string) {
         await this.ensureModel(model)
         const id = msg ? await this.db.addMessage(chatId, 'user', msg, model) : null
         const chat = await this.db.getChat(chatId)
@@ -235,7 +202,6 @@ class OllamaClient {
         }
 
         const messages = await this.db.getMessages(chatId)
-        const examples = await this.fetchExamples()
         const systemPrompt = chat.systemPrompt ?? ''
         const resp = await this.client.chat({
             model,

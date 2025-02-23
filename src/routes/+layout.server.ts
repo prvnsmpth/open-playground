@@ -7,7 +7,6 @@ export const load: LayoutServerLoad = async () => {
     const models = await ollamaClient.listModels()
     return {
         chats,
-        models,
-        defaultModel: ollamaClient.DEFAULT_MODEL
+        models
     }
 }

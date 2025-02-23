@@ -5,10 +5,21 @@
 	import * as Select from '$lib/components/ui/select';
 	import { SquarePen } from 'lucide-svelte';
     import { localStore, type AppState } from '$lib/index.svelte'
+	import Tooltip from '$lib/components/basic-tooltip.svelte'
+	import { onMount } from 'svelte';
 
 	let { data, children } = $props();
 
 	const appState = localStore('state', {} as AppState)
+
+	onMount(() => {
+		if (!appState.value.model && data.models.length > 0) {
+			appState.value = {
+				...appState.value,
+				model: data.models[0]
+			}
+		}
+	})
 
 	let dropdownOpen = $state(false)
 	const triggerContent = $derived(
@@ -16,7 +27,10 @@
 	)
 
 	function handleModelChange(value: string) {
-        appState.value.model = value
+        appState.value = {
+			...appState.value,
+			model: value
+		}
 		dropdownOpen = false
 	}
 
@@ -24,11 +38,12 @@
 
 <main class="grid h-screen grid-cols-1 md:grid-cols-[280px_1fr]">
 	<div class="flex flex-col h-full border-r border-muted bg-muted overflow-y-auto">
-		<div class="flex w-full justify-start items-center p-2 h-14 border-b">
-			<Button variant="ghost" size="sm" href="/" class="hover:bg-gray-200">
-				<SquarePen />
-				New chat
-			</Button>
+		<div class="flex w-full justify-end items-center p-2 h-14 border-b">
+			<Tooltip tooltip="New Chat">
+				<Button variant="ghost" size="sm" href="/" class="hover:bg-gray-200">
+					<SquarePen />
+				</Button>
+			</Tooltip>
 		</div>
 		<div class="flex-1 min-h-0 overflow-y-auto pb-10">
 			{#each data.chats as chat}

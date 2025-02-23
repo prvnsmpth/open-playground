@@ -32,6 +32,11 @@ export class LocalStore<T> {
     }
 }
 
+const localStores: Record<string, LocalStore<any>> = {}
+
 export function localStore<T>(key: string, value: T) {
-    return new LocalStore(key, value);
+    if (!localStores[key]) {
+        localStores[key] = new LocalStore(key, value);
+    }
+    return localStores[key];
 }

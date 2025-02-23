@@ -12,7 +12,7 @@ export const PUT: RequestHandler = async ({ request, params }) => {
 
     if (regenerate) {
         try {
-            const stream = await ollamaClient.regenerateResponse(chatId, model)
+            const stream = await ollamaClient.regenerateResponse(chatId, messageId, model)
             return new Response(stream, { status: 200 })
         } catch (err) {
             console.error('Failed to regenerate message', err)

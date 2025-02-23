@@ -3,7 +3,7 @@
 	import MessageInput from "$lib/components/message-input.svelte";
 	import { onMount } from 'svelte';
 	import Message from '$lib/components/message.svelte';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/state'
     import { localStore, type AppState } from '$lib/index.svelte';
 	import type { StreamMessage } from '$lib';
@@ -35,6 +35,10 @@
     let controller: AbortController | undefined = $state()
 
     let usage = $state<Usage | null>(null)
+
+    afterNavigate(() => {
+        usage = null
+    })
 
     function addMessage(message: ChatMessage) {
         data = {
@@ -114,7 +118,7 @@
         const model = appState.value.model
         
         chatMsg = chatMsg.trim()
-        const req = { message: chatMsg.length > 0 ? chatMsg : undefined, model }
+        const req = { message: chatMsg.length > 0 ? chatMsg : null, model }
         chatMsg = ''
         if (req.message) {
             addMessage({

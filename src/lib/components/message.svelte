@@ -6,6 +6,7 @@
 	import type { FormEventHandler } from "svelte/elements";
 	import { Button } from "$lib/components/ui/button/";
     import * as Accordion from '$lib/components/ui/accordion'
+    import Tooltip from '$lib/components/basic-tooltip.svelte'
 
     interface Props {
         chatMessage: ChatMessage
@@ -105,12 +106,16 @@
     <div class="group flex gap-2 justify-end items-center">
         {#if editable && !editMode}
             <div class="flex gap-1 py-2 text-muted-foreground invisible group-hover:visible">
-                <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={() => editMode = true}>
-                    <Pencil />
-                </Button>
-                <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
-                    <Trash2 />
-                </Button>
+                <Tooltip tooltip="Edit">
+                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={() => editMode = true}>
+                        <Pencil />
+                    </Button>
+                </Tooltip>
+                <Tooltip tooltip="Delete">
+                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
+                        <Trash2 />
+                    </Button>
+                </Tooltip>
             </div>
         {/if}
         <div class={cn("p-4 rounded-xl self-end bg-gray-100", editMode ? "w-full" : "max-w-lg")} 
@@ -180,15 +185,21 @@
             </div>
             {#if editable}
                 <div class="flex gap-1 py-2 text-muted-foreground invisible group-hover:visible">
-                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={() => editMode = true}>
-                        <Pencil />
-                    </Button>
-                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
-                        <Trash2 />
-                    </Button>
-                    <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3">
-                        <RefreshCcw />
-                    </Button>
+                    <Tooltip tooltip="Edit">
+                        <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={() => editMode = true}>
+                            <Pencil />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip tooltip="Delete">
+                        <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3" onclick={deleteMessage}>
+                            <Trash2 />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip tooltip="Regenerate">
+                        <Button variant="ghost" size="icon" class="rounded h-6 w-6 p-3">
+                            <RefreshCcw />
+                        </Button>
+                    </Tooltip>
                 </div>
             {/if}
         </div>
