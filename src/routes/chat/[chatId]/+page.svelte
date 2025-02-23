@@ -5,7 +5,7 @@
 	import Message from '$lib/components/message.svelte';
 	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/state'
-    import { localStore, type AppState } from '$lib/index.svelte';
+    import { appState } from '$lib/index.svelte';
 	import type { StreamMessage } from '$lib';
 	import type { ChatMessage, Usage } from '$lib/server/db';
     import * as Accordion from '$lib/components/ui/accordion'
@@ -14,8 +14,6 @@
 
     let chatMsg = $state('') 
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
-
-    const appState = localStore('state', {} as AppState)
 
     onMount(() => {
         chatMsg = ''
@@ -115,7 +113,11 @@
 
     async function onSubmit() {
         awaitingResponse = true
-        const model = appState.value.model
+        const model = appState.value?.model
+        if (!model) {
+            console.error('No model selected')
+            return
+        }
         
         chatMsg = chatMsg.trim()
         const req = { message: chatMsg.length > 0 ? chatMsg : null, model }

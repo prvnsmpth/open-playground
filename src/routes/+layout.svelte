@@ -4,16 +4,15 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import { SquarePen } from 'lucide-svelte';
-    import { localStore, type AppState } from '$lib/index.svelte'
+    import { appState } from '$lib/index.svelte'
 	import Tooltip from '$lib/components/basic-tooltip.svelte'
 	import { onMount } from 'svelte';
 
 	let { data, children } = $props();
 
-	const appState = localStore('state', {} as AppState)
-
 	onMount(() => {
-		if (!appState.value.model && data.models.length > 0) {
+		if (!appState.value?.model && data.models.length > 0) {
+			console.log('Updating app state with model:', data.models[0])
 			appState.value = {
 				...appState.value,
 				model: data.models[0]
@@ -22,9 +21,6 @@
 	})
 
 	let dropdownOpen = $state(false)
-	const triggerContent = $derived(
-		data.models.find(m => m === appState.value.model) ?? "Select a model"
-	)
 
 	function handleModelChange(value: string) {
         appState.value = {
@@ -59,7 +55,7 @@
 		<div class="border-b h-14 flex items-center px-2">
 			<Select.Root type="single" name="model" bind:open={dropdownOpen} onValueChange={handleModelChange}>
 				<Select.Trigger class="w-fit border-none hover:bg-gray-100 flex gap-2">
-					{triggerContent}
+					{appState.value?.model ?? "Select a model"}
 				</Select.Trigger>
 				<Select.Content align="start">
 					{#each data.models as model}

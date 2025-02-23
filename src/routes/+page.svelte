@@ -4,13 +4,11 @@
     import AutoTextarea from '$lib/components/auto-textarea.svelte';
     import * as Accordion from '$lib/components/ui/accordion'
 	import { debounce } from '$lib/utils';
-	import { localStore, type AppState } from '$lib/index.svelte';
+	import { appState } from '$lib/index.svelte';
 
-    let appState = localStore('state', {} as AppState)
-    let systemPrompt = $state<string | null>(appState.value.systemPrompt ?? null)
+    let systemPrompt = $state<string | null>(appState.value?.systemPrompt ?? null)
     let chatMsg = $state('')
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
-
 
     async function onSubmit() {
         const resp = await fetch('/api/chat', { 
