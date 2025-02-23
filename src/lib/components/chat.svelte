@@ -5,13 +5,14 @@
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
     import type { Chat } from '$lib/server/db';
     import { cn } from '$lib/utils';
-    import { Copy, EllipsisVertical, Snowflake, Trash2 } from 'lucide-svelte';
+    import { Copy, EllipsisVertical, Snowflake, SquarePen, Trash2 } from 'lucide-svelte';
 
     type Props = {
-        chat: Chat
+        chat: Chat,
+        onRenameChat: (chatId: string) => void
     }
 
-    let { chat }: Props = $props()
+    let { chat, onRenameChat }: Props = $props()
 
 	async function deleteChat() {
 		const resp = await fetch(`/api/chat/${chat.id}`, {
@@ -23,13 +24,15 @@
         dropdownOpen = false
 	}
 
-	async function freezeChat() {
+	async function toggleFreezeChat() {
 		const resp = await fetch(`/api/chat/${chat.id}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ frozen: true })
+			body: JSON.stringify({ 
+                frozen: !chat.frozen 
+            })
 		})
 
         if (resp.ok) {
@@ -78,9 +81,17 @@
             </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="start" class="w-fit p-1 flex flex-col gap-1">
-            <DropdownMenu.Item onclick={freezeChat}>
+            <DropdownMenu.Item onclick={toggleFreezeChat}>
                 <Snowflake />
-                Freeze
+                {#if chat.frozen}
+                    Unfreeze
+                {:else}
+                    Freeze
+                {/if}
+            </DropdownMenu.Item>
+            <DropdownMenu.Item onclick={() => onRenameChat(chat.id!)}>
+                <SquarePen />
+                Rename
             </DropdownMenu.Item>
             <DropdownMenu.Item onclick={() => cloneChat(chat.id!)}>
                 <Copy />

@@ -266,6 +266,7 @@
         }
 
         awaitingRegeneration = true
+        updateAsstResponse('Regenerating...', messageId)
         const resp = await fetch(`/api/chat/${data.chat.id}/message/${messageId}`, {
             method: 'PUT',
             headers: {
