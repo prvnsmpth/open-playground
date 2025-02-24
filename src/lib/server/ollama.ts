@@ -2,11 +2,7 @@ import { Ollama, type ModelResponse } from "ollama"
 import { db, DbService, type ChatMessage, type Usage } from "./db"
 import { execSync } from "child_process"
 import { Tool, type StreamMessage } from "$lib"
-import child_process from 'node:child_process'
-import util from 'node:util'
-import * as fs from 'node:fs/promises'
-
-const exec = util.promisify(child_process.exec)
+import { CodeInterpreter } from "./tools"
 
 const TITLE_INSTRUCTIONS = `
 You are given the first few messages between a human and an AI assistant. Your task is to come up with a nice short title for the conversation.
@@ -18,21 +14,18 @@ E.g., <title>How to win friends</title>.
 class OllamaClient {
     private client: Ollama
     private db: DbService
+    private codeInterpreter: CodeInterpreter
+
+    private CTX_LEN = 32_000 // TODO: This should be updated when models are changed
 
     private models?: ModelResponse[]
-
-    private baseScript: string | null = null
 
     constructor() {
         this.client = new Ollama({ host: 'http://localhost:11434' })
         this.db = db
+        this.codeInterpreter = new CodeInterpreter()
 
-        this.loadScript()
         this.listModels()
-    }
-
-    async loadScript() {
-        this.baseScript = await fs.readFile('./src/sheets.py', 'utf8')
     }
 
     async listModels() {
@@ -71,7 +64,7 @@ class OllamaClient {
                 { role: 'user', content: `Here is the conversation:\n${conversation}` }
             ],
             options: {
-                num_ctx: 32_000
+                num_ctx: this.CTX_LEN
             }
         })
         const response = resp.message.content
@@ -121,7 +114,7 @@ class OllamaClient {
             ],
             stream: true,
             options: {
-                num_ctx: 32_000,
+                num_ctx: this.CTX_LEN,
                 temperature: modelConfig.temperature,
                 num_predict: modelConfig.maxTokens,
                 top_p: modelConfig.topP
@@ -169,35 +162,6 @@ class OllamaClient {
         return stream
     }
 
-    private extractCodeBlocks(responseText: string): string[] {
-        const blocks = responseText.matchAll(/```python([\s\S]*?)```/g)
-        return blocks.map(b => {
-            const code = b[1].trim().replace(/^```python/, '').replace(/```$/, '').trim()
-            return code
-        }).toArray()
-    }
-
-    private async executeCode(code: string) {
-        if (!this.baseScript) {
-            console.error('Base script not loaded.')
-            throw new Error('Base script not loaded.')
-        }
-
-        const script = `${this.baseScript}\n${code}`
-
-        // Write the script to a file
-        const scriptPath = 'script.py'
-        await fs.writeFile(scriptPath, script)
-
-        try {
-            const { stdout } = await exec(`python3 ${scriptPath}`)
-            return stdout
-        } catch (err: any) {
-            console.error('Error executing script:', err)
-            return [err.stdout, err.stderr].join('\n')
-        }
-    }
-
     async fetchExamples(): Promise<ChatMessage[][]> {
         const exampleChats = await db.listChats(true, 0, 1)
         return await db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
@@ -221,7 +185,7 @@ class OllamaClient {
             ],
             stream: true,
             options: {
-                num_ctx: 32_000,
+                num_ctx: this.CTX_LEN,
                 temperature: modelConfig.temperature,
                 num_predict: modelConfig.maxTokens,
                 top_p: modelConfig.topP
@@ -241,18 +205,32 @@ class OllamaClient {
             let numIters = 0
             let currResp = asstResponse
             while (numIters < maxIters) {
-                const codeBlocks = this.extractCodeBlocks(currResp)
-                if (codeBlocks.length === 0) {
+                const codeInterpreterRequired = this.codeInterpreter.check(currResp)
+                if (!codeInterpreterRequired) {
                     break
                 }
 
-                const codeStr = codeBlocks.join('\n')
                 sendJson(controller, { type: 'tool_exec_start', content: 'Executing code...' })
-                const output = await this.executeCode(codeStr)
-
-                const toolOutputId = await db.addMessage(chatId, 'tool', output, model)
-                sendJson(controller, { type: 'tool', content: output })
+                const codeOutput = await this.codeInterpreter.handle(currResp)
+                if (codeOutput === null) {
+                    break
+                }
+                const toolOutputId = await db.addMessage(chatId, 'tool', codeOutput, model)
+                sendJson(controller, { type: 'tool', content: codeOutput })
                 sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
+
+                // const codeBlocks = this.extractCodeBlocks(currResp)
+                // if (codeBlocks.length === 0) {
+                //     break
+                // }
+
+                // const codeStr = codeBlocks.join('\n')
+                // sendJson(controller, { type: 'tool_exec_start', content: 'Executing code...' })
+                // const output = await this.executeCode(codeStr)
+
+                // const toolOutputId = await db.addMessage(chatId, 'tool', output, model)
+                // sendJson(controller, { type: 'tool', content: output })
+                // sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
 
                 const messages = await db.getMessages(chatId)
                 const resp = await this.client.chat({
@@ -263,7 +241,7 @@ class OllamaClient {
                     ],
                     stream: true,
                     options: {
-                        num_ctx: 32_000
+                        num_ctx: this.CTX_LEN
                     }
                 })
 
