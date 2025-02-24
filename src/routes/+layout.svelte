@@ -128,7 +128,7 @@
     <div class="flex flex-col h-full border-r bg-muted overflow-y-auto">
         <div class="flex w-full justify-between items-center p-2 h-14 border-b">
             <div class="ml-2 p-1 pb-0 font-mono">
-                open-playground
+                [open-playground]
             </div>
             <Tooltip tooltip="New Chat">
                 <Button variant="ghost" size="sm" href="/" class="hover:bg-gray-200">
