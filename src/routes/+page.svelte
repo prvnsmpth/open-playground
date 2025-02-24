@@ -4,9 +4,10 @@
     import AutoTextarea from '$lib/components/auto-textarea.svelte';
     import * as Accordion from '$lib/components/ui/accordion'
 	import { debounce } from '$lib/utils';
-	import { appState } from '$lib/index.svelte';
+	import { presetStore } from '$lib/client/index.svelte';
 
-    let systemPrompt = $state<string | null>(appState.value?.systemPrompt ?? null)
+    const preset = presetStore.value
+
     let chatMsg = $state('')
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
 
@@ -16,7 +17,7 @@
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ systemPrompt })
+            body: JSON.stringify({ systemPrompt: systemPrompt.value })
         })
         if (!resp.ok) {
             console.error('Failed to create chat:', await resp.text())
@@ -32,15 +33,25 @@
         })
     }
 
-    const saveSysPrompt = debounce(async () => {
+    const saveSysPrompt = debounce(async (prompt: string) => {
         if (systemPrompt === null) {
             return
         }
-        appState.value = {
-            ...appState.value,
-            systemPrompt
+        preset.config.systemPrompt = prompt
+    }, 300)
+
+    let systemPrompt = {
+        prompt: preset.config.systemPrompt || '',
+
+        get value() {
+            return this.prompt
+        },
+
+        set value(value: string) {
+            this.prompt = value
+            saveSysPrompt(value)
         }
-    }, 500)
+    }
 </script>
 
 <div class="flex-1 min-h-0 flex flex-col gap-4 items-center justify-center px-8">
@@ -55,8 +66,7 @@
                 </Accordion.Trigger>
                 <Accordion.Content class="w-full pt-4">
                     <AutoTextarea 
-                        bind:value={systemPrompt} 
-                        onInput={saveSysPrompt}
+                        bind:value={systemPrompt.value} 
                         class="w-full resize-none outline-none ring-0 text-base" 
                         placeholder="You are a helpful AI agent..." />
                 </Accordion.Content>

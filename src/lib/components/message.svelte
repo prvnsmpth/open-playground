@@ -125,7 +125,7 @@
         >
             {chatMessage.message.content}
             {#if editMode}
-                <div class="flex gap-2 justify-end py-2">
+                <div class="flex gap-2 justify-end">
                     <Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
                     <Button size="sm" onclick={saveEdit} disabled={saving}>
                         {#if saving}
@@ -150,7 +150,7 @@
                         <pre class="whitespace-pre-wrap my-0">{chatMessage.message.content}</pre>
                     </div>
                     <div class="flex gap-2 justify-end py-2">
-                        <Button variant="outline" size="sm" onclick={cancelEdit}>Cancel</Button>
+                        <Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
                         <Button size="sm" onclick={saveEdit} disabled={saving}>
                             {#if saving}
                                 <span>Saving...</span>

@@ -1,9 +1,11 @@
+import type { Preset, PresetConfig } from "$lib"
 import sqlite3 from "sqlite3"
 import { ulid } from "ulid"
 
-export enum Entity {
+export enum EntityType {
     Chat = 'c',
     ChatMessage = 'cm',
+    Preset = 'pr'
 }
 
 export type Chat = {
@@ -34,7 +36,7 @@ export type Usage = {
 }
 
 class IdGen {
-    static generate(entity: Entity): string {
+    static generate(entity: EntityType): string {
         return `${entity}_${ulid()}`
     }
 }
@@ -78,6 +80,14 @@ export class DbService {
                     params BLOB
                 )
             `)
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS presets (    
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    preset JSON NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
             this.db.run("PRAGMA foreign_keys = ON");
         });
     }
@@ -105,7 +115,7 @@ export class DbService {
 
     async createChat(systemPrompt: string | null = null): Promise<string> {
         return new Promise((resolve, reject) => {
-            const id = IdGen.generate(Entity.Chat)
+            const id = IdGen.generate(EntityType.Chat)
             this.db.run("INSERT INTO chats (id, system_prompt) VALUES (?, ?)", [id, systemPrompt], function (err) {
                 if (err) {
                     reject(err);
@@ -236,7 +246,7 @@ export class DbService {
     async addMessage(chatId: string, role: string, content: string, model: string): Promise<string> {
         const message = { role, content }
         const messageSeqNum = await this.getNextMessageSeqNum(chatId)
-        const messageId = IdGen.generate(Entity.ChatMessage)
+        const messageId = IdGen.generate(EntityType.ChatMessage)
         return new Promise((resolve, reject) => {
             this.db.run(
                 "INSERT INTO messages (id, chat_id, message_seq_num, message, model) VALUES (?, ?, ?, ?, ?)", 
@@ -313,6 +323,63 @@ export class DbService {
                     reject(err);
                 } else {
                     resolve(rows.map(row => row.name));
+                }
+            });
+        });
+    }
+
+    async savePreset(name: string, config: PresetConfig): Promise<string> {
+        const id = IdGen.generate(EntityType.Preset)
+        return new Promise((resolve, reject) => {
+            this.db.run("INSERT INTO presets (id, name, preset) VALUES (?, ?, ?)", [id, name, JSON.stringify(config)], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(id)
+                }
+            });
+        });
+    }
+
+    async listPresets(): Promise<Pick<Preset, 'id' | 'name'>[]> {
+        return new Promise((resolve, reject) => {
+            this.db.all("SELECT id, name FROM presets", [], function (err, rows: any[]) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows.map(row => ({
+                        id: row.id,
+                        name: row.name,
+                    })))
+                }
+            });
+        });
+    }
+
+    async getPreset(id: string): Promise<Preset> {
+        return new Promise((resolve, reject) => {
+            this.db.get("SELECT * FROM presets WHERE id = ?", [id], function (err, row: any) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({
+                        id: row.id,
+                        name: row.name,
+                        config: JSON.parse(row.preset),
+                        createdAt: row.created_at
+                    })
+                }
+            });
+        });
+    }
+
+    async deletePreset(id: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.db.run("DELETE FROM presets WHERE id = ?", [id], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve()
                 }
             });
         });

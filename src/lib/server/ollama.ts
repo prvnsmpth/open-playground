@@ -1,7 +1,7 @@
 import { Ollama, type ModelResponse } from "ollama"
 import { db, DbService, type ChatMessage, type Usage } from "./db"
 import { execSync } from "child_process"
-import type { StreamMessage } from "$lib"
+import { Tool, type StreamMessage } from "$lib"
 import child_process from 'node:child_process'
 import util from 'node:util'
 import * as fs from 'node:fs/promises'
@@ -90,7 +90,7 @@ class OllamaClient {
         }
     }
 
-    async regenerateResponse(chatId: string, messageId: string, model: string) {
+    async regenerateResponse(chatId: string, messageId: string, model: string, modelConfig: any, tools: Tool[] = []) {
         await this.ensureModel(model)
 
         const chat = await this.db.getChat(chatId)
@@ -121,7 +121,10 @@ class OllamaClient {
             ],
             stream: true,
             options: {
-                num_ctx: 32_000
+                num_ctx: 32_000,
+                temperature: modelConfig.temperature,
+                num_predict: modelConfig.maxTokens,
+                top_p: modelConfig.topP
             }
         })
 
@@ -200,7 +203,7 @@ class OllamaClient {
         return await db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
     }
 
-    async sendMessage(chatId: string, msg: string | null, model: string) {
+    async sendMessage(chatId: string, msg: string | null, model: string, modelConfig: any, tools: Tool[] = []) {
         await this.ensureModel(model)
         const id = msg ? await this.db.addMessage(chatId, 'user', msg, model) : null
         const chat = await this.db.getChat(chatId)
@@ -218,7 +221,10 @@ class OllamaClient {
             ],
             stream: true,
             options: {
-                num_ctx: 32_000
+                num_ctx: 32_000,
+                temperature: modelConfig.temperature,
+                num_predict: modelConfig.maxTokens,
+                top_p: modelConfig.topP
             }
         })
 
@@ -335,10 +341,16 @@ class OllamaClient {
                         } else {
                             await db.addMessage(chatId, 'assistant', responseTxt, model)
                         }
-                        try {
-                            await runEvalLoop(controller, responseTxt)
-                        } catch (err) {
-                            console.error('Error running eval loop:', err)
+
+                        const codeInterpreterEnabled = tools.includes(Tool.CodeInterpreter)
+                        if (codeInterpreterEnabled) {
+                            try {
+                                await runEvalLoop(controller, responseTxt)
+                            } catch (err) {
+                                console.error('Error running eval loop:', err)
+                            }
+                        } else {
+                            console.log('Code interpreter not enabled, ignoring code.')
                         }
                     }
 

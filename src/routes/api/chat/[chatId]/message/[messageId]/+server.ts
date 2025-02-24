@@ -8,11 +8,11 @@ export const PUT: RequestHandler = async ({ request, params }) => {
         throw error(400, 'Invalid chatId or messageId')
     }
 
-    const { regenerate = false, content, model } = await request.json()
+    const { regenerate = false, content, model, modelConfig, tools } = await request.json()
 
     if (regenerate) {
         try {
-            const stream = await ollamaClient.regenerateResponse(chatId, messageId, model)
+            const stream = await ollamaClient.regenerateResponse(chatId, messageId, model, modelConfig, tools)
             return new Response(stream, { status: 200 })
         } catch (err) {
             console.error('Failed to regenerate message', err)

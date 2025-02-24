@@ -5,7 +5,7 @@
 	import Message from '$lib/components/message.svelte';
 	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/state'
-    import { appState } from '$lib/index.svelte';
+    import { presetStore } from '$lib/client/index.svelte';
 	import type { StreamMessage } from '$lib';
 	import type { ChatMessage, Usage } from '$lib/server/db';
     import * as Accordion from '$lib/components/ui/accordion'
@@ -24,6 +24,12 @@
             chatMsg = pageState.message
             onSubmit()
         }
+    })
+
+    const preset = $derived(presetStore.value.config)
+
+    $inspect(preset).with((type, val) => {
+        console.log('preset', type, val)
     })
 
     let awaitingResponse = $state(false)
@@ -125,14 +131,23 @@
 
     async function onSubmit() {
         awaitingResponse = true
-        const model = appState.value?.model
+        const model = preset.model
         if (!model) {
             console.error('No model selected')
             return
         }
-        
+
         chatMsg = chatMsg.trim()
-        const req = { message: chatMsg.length > 0 ? chatMsg : null, model }
+        const req = { 
+            message: chatMsg.length > 0 ? chatMsg : null, 
+            model,
+            modelConfig: {
+                temperature: preset.temperature,
+                maxTokens: preset.maxTokens,
+                topP: preset.topP,
+            },
+            tools: preset.tools,
+        }
         chatMsg = ''
         if (req.message) {
             addMessage({
@@ -260,7 +275,7 @@
     }
 
     async function onMessageRegenerate(messageId: string) {
-        if (!appState.value?.model) {
+        if (!preset.model) {
             console.error('No model selected')
             return
         }
@@ -274,7 +289,13 @@
             },
             body: JSON.stringify({
                 regenerate: true,
-                model: appState.value.model
+                model: preset.model,
+                modelConfig: {
+                    temperature: preset.temperature,
+                    maxTokens: preset.maxTokens,
+                    topP: preset.topP,
+                },
+                tools: preset.tools,
             })
         })
 
@@ -363,7 +384,7 @@
     }, 500)
 </script>
 
-<div class="flex-1 min-h-0 flex flex-col items-center px-8">
+<div class="flex-1 min-h-0 flex flex-col items-center">
     <div class="flex-1 flex flex-col items-center py-8 w-full overflow-y-auto">
         <div class="flex mb-8 border prose w-full max-w-screen-md rounded-lg p-4">
             <Accordion.Root type="single" class="w-full">
