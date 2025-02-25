@@ -4,7 +4,7 @@ services:
     restart: always
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    expose:
+    ports:
       - "3000:3000"
     volumes:
       - ./playground.db:/app/playground.db
@@ -14,8 +14,8 @@ services:
   ollama:
     image: ollama/ollama
     restart: unless-stopped
-    ports:
-      - "11434:11434"
+    expose:
+      - "11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
