@@ -10,9 +10,18 @@ Experiment with local/hosted LLMs. Build datasets for fine-tuning, benchmarking,
 
 # What's in the box?
 
-A playground that gives you full control over the contents of a chat conversation: add, remove, edit messages and shape the flow of the conversation to match exactly what you need. This flexibility allows you to do some interesting things. A few examples:
-1. Provide a prefix for a model's response and get it to complete the rest
-2. Start a conversation with a large reasoning model, and then switch over to a smaller model that will now mimic the reasoning steps in the previous conversations (in-context learning)
+A playground that gives you full control over the contents of a chat conversation: add, remove and edit messages (system, user and assistant) and shape the flow of the conversation to be exactly what you need. This flexibility allows you to do some interesting things, such as:
+1. Start a conversation with a large reasoning model, and then switch over to a smaller model that will now mimic the reasoning steps in the previous conversations (in-context learning)
+2. Provide a prefix for the model's response, nudging it in a desired direction.
+3. Other things that I haven't thought of yet.
+
+You also get some nice-to-have features:
+1. A basic code interpreter implementation that can execute Python code
+2. The ability to freeze conversations and use them as few-shot examples to generate even more good conversations.
+3. Save and load preset model configs.
+
+Coming soon:
+1. Specify tools for function calling
 
 ## Getting Started
 
