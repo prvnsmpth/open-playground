@@ -15,6 +15,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                     controller.enqueue(encoder.encode(JSON.stringify(chunk) + '\n'))
                 }
                 controller.close()
+                locals.ollama.clearModelCache()
             }
         })
         return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })

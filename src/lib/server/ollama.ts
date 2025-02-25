@@ -5,6 +5,7 @@ import { Tool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
 import { env } from '$env/dynamic/private'
 import logger from '$lib/server/logger'
+import { Cache } from "./cache"
 
 const TITLE_INSTRUCTIONS = `
 You are given the first few messages between a human and an AI assistant. Your task is to come up with a nice short title for the conversation.
@@ -20,7 +21,7 @@ class OllamaClient {
 
     private CTX_LEN = 32_000 // TODO: This should be updated when models are changed
 
-    private models?: ModelResponse[]
+    private modelCache: Cache<ModelResponse[]>
 
     constructor() {
         if (!env.OLLAMA_HOST) {
@@ -30,11 +31,12 @@ class OllamaClient {
         this.client = new Ollama({ host: env.OLLAMA_HOST })
         this.db = connect()
         this.codeInterpreter = new CodeInterpreter()
+        this.modelCache = new Cache()
     }
 
     async listModels() {
-        if (this.models) {
-            return this.models.map(m => m.name)
+        if (this.modelCache.has('models')) {
+            return this.modelCache.get('models')?.map(m => m.name) as string[]
         }
 
         const resp = await this.client.list()
@@ -44,8 +46,12 @@ class OllamaClient {
                 await this.db.addModel(m.name)
             }
         }
-        this.models = resp.models
+        this.modelCache.put('models', resp.models)
         return resp.models.map(m => m.name)
+    }
+
+    clearModelCache() {
+        this.modelCache.clear()
     }
 
     async createChat() {
