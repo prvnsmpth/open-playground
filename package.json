@@ -46,7 +46,6 @@
 		"vite": "^6.0.0"
 	},
 	"dependencies": {
-		"@google/generative-ai": "^0.21.0",
 		"@humanspeak/svelte-markdown": "^0.7.17",
 		"date-fns": "^4.1.0",
 		"ollama": "^0.5.13",

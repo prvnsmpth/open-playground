@@ -17,7 +17,8 @@ export class CodeInterpreter implements Tool {
 
     async loadScript() {
         if (!env.CODE_INTERPRETER_BASE_SCRIPT) {
-            throw new Error('CODE_INTERPRETER_BASE_SCRIPT environment variable is not set')
+            logger.warn('CODE_INTERPRETER_BASE_SCRIPT not set.')
+            return
         }
         logger.info(`Loading base script: ${env.CODE_INTERPRETER_BASE_SCRIPT}`)
         this.baseScript = await fs.readFile(env.CODE_INTERPRETER_BASE_SCRIPT, 'utf8')
@@ -32,10 +33,6 @@ export class CodeInterpreter implements Tool {
     }
 
     private async executeCode(code: string) {
-        if (!this.baseScript) {
-            throw new Error('Base script not loaded.')
-        }
-
         const script = `${this.baseScript}\n${code}`
 
         // Write the script to a file
