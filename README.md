@@ -1,3 +1,7 @@
+<div align="center">
+    <img src="static/favicon.png" />
+</div>
+
 # open-playground
 
 Experiment with local/hosted LLMs, build datasets for fine-tuning, benchmarking, and more.
