@@ -41,6 +41,11 @@ You can run the playground with ollama using Docker Compose:
 ```bash
 git clone https://github.com/prvnsmpth/open-playground.git
 cd open-playground
+
+# If you have an nvidia GPU:
+docker compose -f compose.yaml -f compose.gpu.yaml up -d
+
+# If you don't
 docker compose up -d
 ```
 
