@@ -34,6 +34,8 @@ docker run --rm \
     ghcr.io/prvnsmpth/open-playground:latest
 ```
 
+and then go to http://localhost:3000.
+
 ### I don't have ollama running
 
 You can run the playground with ollama using Docker Compose:
@@ -48,6 +50,8 @@ docker compose -f compose.yaml -f compose.gpu.yaml up -d
 # If you don't
 docker compose up -d
 ```
+
+and once again, the playground is served at http://localhost:3000.
 
 # Why
 
