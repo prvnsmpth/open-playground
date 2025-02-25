@@ -1,0 +1,30 @@
+services:
+  open-playground:
+    image: ghcr.io/prvnsmpth/open-playground:latest
+    restart: always
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    expose:
+      - "3000:3000"
+    volumes:
+      - ./playground.db:/app/playground.db
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama:
