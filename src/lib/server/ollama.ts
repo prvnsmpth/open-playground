@@ -356,6 +356,11 @@ class OllamaClient {
         })
         return stream
     }
+
+    async pullModel(model: string) {
+        logger.info({ message: 'Pulling model', model })
+        return this.client.pull({ model, stream: true })
+    }
 }
 
 let ollamaClient: OllamaClient
@@ -366,4 +371,4 @@ function createOllamaClient() {
     return ollamaClient
 }
 
-export { createOllamaClient }
+export { createOllamaClient, OllamaClient }

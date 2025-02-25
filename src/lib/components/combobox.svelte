@@ -54,29 +54,35 @@
             </Button>
         {/snippet}
     </Popover.Trigger>
-    <Popover.Content class="w-[19rem] p-0">
-        <Command.Root>
-            <Command.Input {placeholder} />
-            <Command.List>
-                <Command.Empty>
-                    <p class="text-xs text-muted-foreground">{emptyMessage}</p>
-                </Command.Empty>
-                <Command.Group>
-                    {#each items as item}
-                        <Command.Item
-                            value={item.value}
-                            onSelect={() => {
-                                value = item.value;
-                                onItemSelect(item.value)
-                                closeAndFocusTrigger();
-                            }}
-                        >
-                            <Check class={cn(value !==item.value && 'text-transparent')} />
-                            {item.label}
-                        </Command.Item>
-                    {/each}
-                </Command.Group>
-            </Command.List>
-        </Command.Root>
+    <Popover.Content class="p-0">
+        {#if items.length > 0}
+            <Command.Root>
+                <Command.Input {placeholder} />
+                <Command.List>
+                    <Command.Empty>
+                        <p class="text-xs text-muted-foreground">{emptyMessage}</p>
+                    </Command.Empty>
+                    <Command.Group>
+                        {#each items as item}
+                            <Command.Item
+                                value={item.value}
+                                onSelect={() => {
+                                    value = item.value;
+                                    onItemSelect(item.value)
+                                    closeAndFocusTrigger();
+                                }}
+                            >
+                                <Check class={cn(value !==item.value && 'text-transparent')} />
+                                {item.label}
+                            </Command.Item>
+                        {/each}
+                    </Command.Group>
+                </Command.List>
+            </Command.Root>
+        {:else}
+            <div class="prose p-4">
+                <p class="text-xs text-muted-foreground text-center">{emptyMessage}</p>
+            </div>
+        {/if}
     </Popover.Content>
 </Popover.Root>
