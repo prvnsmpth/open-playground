@@ -1,8 +1,7 @@
-import { db } from "$lib/server/db"
 import { error, type RequestHandler } from "@sveltejs/kit"
-import { ollamaClient } from "$lib/server/ollama"
 
-export const PUT: RequestHandler = async ({ request, params }) => {
+export const PUT: RequestHandler = async ({ request, params, locals }) => {
+    const db = locals.db
     const { chatId, messageId } = params
     if (!chatId || !messageId) {
         throw error(400, 'Invalid chatId or messageId')
@@ -12,7 +11,7 @@ export const PUT: RequestHandler = async ({ request, params }) => {
 
     if (regenerate) {
         try {
-            const stream = await ollamaClient.regenerateResponse(chatId, messageId, model, modelConfig, tools)
+            const stream = await locals.ollama.regenerateResponse(chatId, messageId, model, modelConfig, tools)
             return new Response(stream, { status: 200 })
         } catch (err) {
             console.error('Failed to regenerate message', err)
@@ -29,7 +28,8 @@ export const PUT: RequestHandler = async ({ request, params }) => {
     }
 }
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+    const db = locals.db
     const { chatId, messageId } = params
     if (!chatId || !messageId) {
         throw error(400, 'Invalid chatId or messageId')

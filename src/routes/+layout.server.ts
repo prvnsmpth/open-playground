@@ -1,14 +1,12 @@
 import type { LayoutServerLoad } from "./$types";
-import { db } from "$lib/server/db";
-import { ollamaClient } from "$lib/server/ollama";
 
-export const load: LayoutServerLoad = async () => {
-    const chats = await db.listChats()
-    const models = await ollamaClient.listModels()
-    const presets = await db.listPresets()
+export const load: LayoutServerLoad = async ({ locals }) => {
+    const chats = await locals.db.listChats()
+    const models = await locals.ollama.listModels()
+    const presets = await locals.db.listPresets()
     return {
         chats,
         models,
-        presets
+        presets,
     }
 }

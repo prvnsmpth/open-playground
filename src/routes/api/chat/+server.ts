@@ -1,5 +1,4 @@
 import { error, json, type RequestHandler } from "@sveltejs/kit";
-import { db } from "$lib/server/db";
 
 type CloneChatRequest = {
     clone: true,
@@ -13,7 +12,8 @@ type NewChatRequest = {
 
 type CreateChatRequest = CloneChatRequest | NewChatRequest
 
-export const POST: RequestHandler = async ({ params, request })  => {
+export const POST: RequestHandler = async ({ params, request, locals })  => {
+    const { db } = locals
     const req: CreateChatRequest = await request.json();
     let newChatId
     if (req.clone) {

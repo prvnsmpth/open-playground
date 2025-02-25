@@ -43,15 +43,17 @@ class IdGen {
 
 export class DbService {
     private db: sqlite3.Database
+    private dbFileName: string = "playground.db"
 
     constructor() {
-        this.db = new sqlite3.Database("playground.db");
-        this.db.on('trace', (sql) => {
-            console.log('SQL:', sql);
-        })
+        this.db = new sqlite3.Database(this.dbFileName);
     }
 
     async init() {
+        this.db.on('trace', (sql) => {
+            console.log('SQL:', sql);
+        })
+
         this.db.serialize(() => {
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS chats (
@@ -356,7 +358,11 @@ export class DbService {
         });
     }
 
-    async getPreset(id: string): Promise<Preset> {
+    async getPreset(id: string): Promise<Preset | null> {
+        if (id === 'default') {
+            return null
+        }
+
         return new Promise((resolve, reject) => {
             this.db.get("SELECT * FROM presets WHERE id = ?", [id], function (err, row: any) {
                 if (err) {
@@ -386,7 +392,15 @@ export class DbService {
     }
 }
 
-const db = new DbService();
-db.init()
 
-export { db }
+let db: DbService
+
+function connect() {
+    if (!db) {
+        db = new DbService()
+        db.init()
+    }
+    return db
+}
+
+export { connect }

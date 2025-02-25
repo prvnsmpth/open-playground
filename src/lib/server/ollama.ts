@@ -1,8 +1,9 @@
 import { Ollama, type ModelResponse } from "ollama"
-import { db, DbService, type ChatMessage, type Usage } from "./db"
+import { connect, DbService, type ChatMessage, type Usage } from "./db"
 import { execSync } from "child_process"
 import { Tool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
+import { env } from '$env/dynamic/private'
 
 const TITLE_INSTRUCTIONS = `
 You are given the first few messages between a human and an AI assistant. Your task is to come up with a nice short title for the conversation.
@@ -21,11 +22,13 @@ class OllamaClient {
     private models?: ModelResponse[]
 
     constructor() {
-        this.client = new Ollama({ host: 'http://localhost:11434' })
-        this.db = db
+        if (!env.OLLAMA_HOST) {
+            throw new Error("OLLAMA_HOST environment variable is not set")
+        }
+        console.log(`Connecting to Ollama at ${env.OLLAMA_HOST}`)
+        this.client = new Ollama({ host: env.OLLAMA_HOST })
+        this.db = connect()
         this.codeInterpreter = new CodeInterpreter()
-
-        this.listModels()
     }
 
     async listModels() {
@@ -122,7 +125,7 @@ class OllamaClient {
         })
 
         let responseTxt = ''
-        this.db = db
+        const db = this.db
         const encoder = new TextEncoder()
 
         let streamCancelled = false
@@ -163,8 +166,8 @@ class OllamaClient {
     }
 
     async fetchExamples(): Promise<ChatMessage[][]> {
-        const exampleChats = await db.listChats(true, 0, 1)
-        return await db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
+        const exampleChats = await this.db.listChats(true, 0, 1)
+        return await this.db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
     }
 
     async sendMessage(chatId: string, msg: string | null, model: string, modelConfig: any, tools: Tool[] = []) {
@@ -215,7 +218,7 @@ class OllamaClient {
                 if (codeOutput === null) {
                     break
                 }
-                const toolOutputId = await db.addMessage(chatId, 'tool', codeOutput, model)
+                const toolOutputId = await this.db.addMessage(chatId, 'tool', codeOutput, model)
                 sendJson(controller, { type: 'tool', content: codeOutput })
                 sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
 
@@ -232,7 +235,7 @@ class OllamaClient {
                 // sendJson(controller, { type: 'tool', content: output })
                 // sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
 
-                const messages = await db.getMessages(chatId)
+                const messages = await this.db.getMessages(chatId)
                 const resp = await this.client.chat({
                     model,
                     messages: [
@@ -258,7 +261,7 @@ class OllamaClient {
                     }
                 }
 
-                const asstRespId = await db.addMessage(chatId, 'assistant', currResp, model)
+                const asstRespId = await this.db.addMessage(chatId, 'assistant', currResp, model)
                 sendJson(controller, { type: 'asst_msg_id', content: asstRespId })
                 numIters++
             }
@@ -275,6 +278,7 @@ class OllamaClient {
         const generateTitle = async () => await this.generateTitle(chatId)
         let streamCancelled = false
         let asstIdSent = false
+        const db = this.db
         const stream = new ReadableStream({
             async start(controller) {
                 try {
@@ -354,6 +358,12 @@ class OllamaClient {
     }
 }
 
-const ollamaClient = new OllamaClient();
+let ollamaClient: OllamaClient
+function createOllamaClient() {
+    if (!ollamaClient) {
+        ollamaClient = new OllamaClient()
+    }
+    return ollamaClient
+}
 
-export { ollamaClient }
+export { createOllamaClient }

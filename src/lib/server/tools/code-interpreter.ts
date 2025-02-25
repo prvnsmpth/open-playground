@@ -2,9 +2,11 @@ import * as fs from 'node:fs/promises'
 import util from 'node:util'
 import child_process from 'node:child_process'
 import { type Tool } from '.'
+import { env } from '$env/dynamic/private'
 
 const exec = util.promisify(child_process.exec)
 
+// Checks if LLM response contains any code blocks, and if found, executes them and returns the result
 export class CodeInterpreter implements Tool {
     private baseScript: string = ''
 
@@ -13,7 +15,11 @@ export class CodeInterpreter implements Tool {
     }
 
     async loadScript() {
-        this.baseScript = await fs.readFile('./src/sheets.py', 'utf8')
+        if (!env.CODE_INTERPRETER_BASE_SCRIPT) {
+            throw new Error('CODE_INTERPRETER_BASE_SCRIPT environment variable is not set')
+        }
+        console.log(`Loading base script: ${env.CODE_INTERPRETER_BASE_SCRIPT}`)
+        this.baseScript = await fs.readFile(env.CODE_INTERPRETER_BASE_SCRIPT, 'utf8')
     }
 
     private extractCodeBlocks(responseText: string): string[] {
@@ -26,7 +32,6 @@ export class CodeInterpreter implements Tool {
 
     private async executeCode(code: string) {
         if (!this.baseScript) {
-            console.error('Base script not loaded.')
             throw new Error('Base script not loaded.')
         }
 
@@ -37,7 +42,7 @@ export class CodeInterpreter implements Tool {
         await fs.writeFile(scriptPath, script)
 
         try {
-            const { stdout } = await exec(`python3 ${scriptPath}`)
+            const { stdout } = await exec(`python ${scriptPath}`)
             return stdout
         } catch (err: any) {
             console.error('Error executing script:', err)

@@ -1,7 +1,7 @@
-import { db } from "$lib/server/db"
 import { error, type RequestHandler } from "@sveltejs/kit"
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+    const db = locals.db
     const { chatId } = params
     if (!chatId) {
         throw error(400, 'Invalid chatId')
@@ -16,7 +16,8 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
 }
 
-export const PATCH: RequestHandler = async ({ request, params }) => {
+export const PATCH: RequestHandler = async ({ request, params, locals }) => {
+    const db = locals.db
     const { chatId } = params
     if (!chatId) {
         throw error(400, 'Invalid chatId')
