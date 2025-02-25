@@ -391,7 +391,7 @@
                         <AutoTextarea 
                             bind:value={data.chat.systemPrompt} 
                             onInput={updateSystemPrompt}
-                            class="w-full resize-none outline-none ring-0" 
+                            class="w-full resize-none outline-none ring-0 bg-card" 
                             placeholder="You are a helpful AI agent..." />
                     </Accordion.Content>
                 </Accordion.Item>

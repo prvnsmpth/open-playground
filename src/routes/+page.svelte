@@ -67,7 +67,7 @@
                 <Accordion.Content class="w-full pt-4">
                     <AutoTextarea 
                         bind:value={systemPrompt.value} 
-                        class="w-full resize-none outline-none ring-0 text-base" 
+                        class="w-full resize-none outline-none ring-0 text-base bg-card" 
                         placeholder="You are a helpful AI agent..." />
                 </Accordion.Content>
             </Accordion.Item>
