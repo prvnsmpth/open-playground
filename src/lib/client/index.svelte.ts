@@ -1,5 +1,5 @@
 import { browser } from '$app/environment'
-import { type Preset, type PresetConfig, Tool } from '$lib'
+import { type Preset, Tool } from '$lib'
 
 class LocalStore<T> {
     public value = $state<T>() as T

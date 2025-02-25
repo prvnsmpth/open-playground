@@ -16,9 +16,7 @@
     });
 
     export function autoResize() {
-        console.log('autoResize')
         if (!lineHeight || !el) {
-            console.log('lineHeight or el is null')
             return;
         }
         el.style.height = 'auto';

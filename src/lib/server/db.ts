@@ -1,6 +1,7 @@
 import type { Preset, PresetConfig } from "$lib"
 import sqlite3 from "sqlite3"
 import { ulid } from "ulid"
+import logger from '$lib/server/logger'
 
 export enum EntityType {
     Chat = 'c',
@@ -51,7 +52,7 @@ export class DbService {
 
     async init() {
         this.db.on('trace', (sql) => {
-            console.log('SQL:', sql);
+            logger.info({ message: 'SQL', sql: sql })
         })
 
         this.db.serialize(() => {
@@ -294,7 +295,7 @@ export class DbService {
     }
 
     async deleteMessage(chatId: string, messageId: string): Promise<void> {
-        console.log('Deleting message', chatId, messageId)
+        logger.info({ message: 'Deleting message', chatId, messageId })
         return new Promise((resolve, reject) => {
             this.db.run("DELETE FROM messages WHERE chat_id = ? AND id = ?", [chatId, messageId], function (err) {
                 if (err) {

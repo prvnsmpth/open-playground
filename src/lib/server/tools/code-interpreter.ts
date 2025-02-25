@@ -3,6 +3,7 @@ import util from 'node:util'
 import child_process from 'node:child_process'
 import { type Tool } from '.'
 import { env } from '$env/dynamic/private'
+import logger from '$lib/server/logger'
 
 const exec = util.promisify(child_process.exec)
 
@@ -18,7 +19,7 @@ export class CodeInterpreter implements Tool {
         if (!env.CODE_INTERPRETER_BASE_SCRIPT) {
             throw new Error('CODE_INTERPRETER_BASE_SCRIPT environment variable is not set')
         }
-        console.log(`Loading base script: ${env.CODE_INTERPRETER_BASE_SCRIPT}`)
+        logger.info(`Loading base script: ${env.CODE_INTERPRETER_BASE_SCRIPT}`)
         this.baseScript = await fs.readFile(env.CODE_INTERPRETER_BASE_SCRIPT, 'utf8')
     }
 

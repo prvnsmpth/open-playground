@@ -1,4 +1,5 @@
 import { error, json, type RequestHandler } from "@sveltejs/kit";
+import logger from '$lib/server/logger'
 
 type CloneChatRequest = {
     clone: true,
@@ -17,7 +18,7 @@ export const POST: RequestHandler = async ({ params, request, locals })  => {
     const req: CreateChatRequest = await request.json();
     let newChatId
     if (req.clone) {
-        console.log(`Cloning chat ${req.chatId}`)
+        logger.info({ message: 'Cloning chat', chatId: req.chatId })
         const chat = await db.getChat(req.chatId)
         if (!chat) {
             throw error(404, `Chat ${req.chatId} not found`)

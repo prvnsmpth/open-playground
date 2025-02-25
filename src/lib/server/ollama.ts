@@ -4,6 +4,7 @@ import { execSync } from "child_process"
 import { Tool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
 import { env } from '$env/dynamic/private'
+import logger from '$lib/server/logger'
 
 const TITLE_INSTRUCTIONS = `
 You are given the first few messages between a human and an AI assistant. Your task is to come up with a nice short title for the conversation.
@@ -25,7 +26,7 @@ class OllamaClient {
         if (!env.OLLAMA_HOST) {
             throw new Error("OLLAMA_HOST environment variable is not set")
         }
-        console.log(`Connecting to Ollama at ${env.OLLAMA_HOST}`)
+        logger.info(`Connecting to Ollama at ${env.OLLAMA_HOST}`)
         this.client = new Ollama({ host: env.OLLAMA_HOST })
         this.db = connect()
         this.codeInterpreter = new CodeInterpreter()
@@ -310,9 +311,9 @@ class OllamaClient {
                     }
                 } catch (err) {
                     if (err instanceof DOMException && err.name === 'AbortError') {
-                        console.log('Stream aborted')
+                        logger.info({ message: 'Stream aborted', chatId, messageId: id })
                     } else {
-                        console.error('Error reading response:', err)
+                        logger.error({ message: 'Error reading response', error: err })
                     }
                 } finally {
                     const finalMessages = await db.getMessages(chatId)
@@ -332,7 +333,7 @@ class OllamaClient {
                                 console.error('Error running eval loop:', err)
                             }
                         } else {
-                            console.log('Code interpreter not enabled, ignoring code.')
+                            logger.info('Code interpreter not enabled, ignoring code.')
                         }
                     }
 
@@ -349,7 +350,6 @@ class OllamaClient {
             },
 
             cancel() {
-                console.log('Cancelling stream')
                 streamCancelled = true
                 resp.abort() 
             }

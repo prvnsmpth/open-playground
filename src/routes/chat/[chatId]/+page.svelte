@@ -28,10 +28,6 @@
 
     const preset = $derived(presetStore.value.config)
 
-    $inspect(preset).with((type, val) => {
-        console.log('preset', type, val)
-    })
-
     let awaitingResponse = $state(false)
     let awaitingRegeneration = $state(false)
     let awaitingToolResponse = $state(false)
@@ -251,7 +247,6 @@
                         usage = sm.content as Usage 
                         break
                     case 'chat_title':
-                        console.log('Chat title:', sm.content)
                         invalidateAll()
                         break
                     default:
