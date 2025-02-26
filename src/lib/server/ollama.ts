@@ -1,5 +1,6 @@
 import { Ollama, type ModelResponse } from "ollama"
-import { connect, DbService, type ChatMessage, type Usage } from "./db"
+import { connect, DbService } from "./db"
+import type { ChatMessage, Usage } from '$lib'
 import { execSync } from "child_process"
 import { Tool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
@@ -52,10 +53,6 @@ class OllamaClient {
 
     clearModelCache() {
         this.modelCache.clear()
-    }
-
-    async createChat() {
-        return await this.db.createChat()
     }
 
     async generateTitle(chatId: string): Promise<string> {
@@ -170,11 +167,6 @@ class OllamaClient {
             }
         })
         return stream
-    }
-
-    async fetchExamples(): Promise<ChatMessage[][]> {
-        const exampleChats = await this.db.listChats(true, 0, 1)
-        return await this.db.getMessagesBatch(exampleChats.filter(c => c !== null).map(c => c.id!))
     }
 
     async sendMessage(chatId: string, msg: string | null, model: string, modelConfig: any, tools: Tool[] = []) {

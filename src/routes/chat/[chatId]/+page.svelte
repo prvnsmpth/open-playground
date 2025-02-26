@@ -7,7 +7,7 @@
     import { page } from '$app/state'
     import { presetStore } from '$lib/client/index.svelte';
 	import type { StreamMessage } from '$lib';
-	import type { ChatMessage, Usage } from '$lib/server/db';
+	import type { ChatMessage, Usage } from '$lib';
     import * as Accordion from '$lib/components/ui/accordion'
     import AutoTextarea from '$lib/components/auto-textarea.svelte';
 	import { debounce } from '$lib/utils';
@@ -262,6 +262,9 @@
     }
 
     let { data }: PageProps = $props()
+    $inspect(data).with((type, val) => {
+        console.log('data', type, val)
+    })
 
     let scrollAnchor: HTMLDivElement | undefined = $state()
 
@@ -435,7 +438,7 @@
     <div class="flex flex-col gap-1 self-stretch relative">
         {#if usage}
             <div class="absolute -top-8 self-center flex gap-2 items-center border border-muted p-1 px-2 bg-background shadown-lg rounded-md">
-                <span class="text-xs text-muted-foreground font-semibold">Usage</span>
+                <span class="text-xs text-muted-foreground font-semibold">Tokens</span>
                 <span class="text-xs text-muted-foreground">{usage.promptTokens} prompt</span>
                 <span class="text-xs">&middot;</span>
                 <span class="text-xs text-muted-foreground">{usage.completionTokens} completion</span>

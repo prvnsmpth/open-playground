@@ -71,8 +71,9 @@
                                     onItemSelect(item.value)
                                     closeAndFocusTrigger();
                                 }}
+                                class="cursor-pointer"
                             >
-                                <Check class={cn(value !==item.value && 'text-transparent')} />
+                                <Check class={cn(value !== item.value && 'text-transparent')} />
                                 {item.label}
                             </Command.Item>
                         {/each}

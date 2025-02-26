@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ChatMessage, ChatMessageContent } from "$lib/server/db";
+	import type { ChatMessage } from "$lib";
 	import { cn, debounce } from "$lib/utils";
     import SvelteMarkdown from '@humanspeak/svelte-markdown'
 	import { Pencil, Trash2, Bot, RefreshCcw, Wrench } from "lucide-svelte";

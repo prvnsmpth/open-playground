@@ -1,25 +1,26 @@
 <script lang="ts">
-    import { goto } from '$app/navigation';
+    import { goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/state';
     import Button from '$lib/components/ui/button/button.svelte';
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-    import type { Chat } from '$lib/server/db';
+    import type { Chat } from '$lib';
     import { cn } from '$lib/utils';
     import { Copy, EllipsisVertical, Snowflake, SquarePen, Trash2 } from 'lucide-svelte';
 
     type Props = {
         chat: Chat,
         onRenameChat: (chatId: string) => void
+        onDeleteChat: (chatId: string) => void
     }
 
-    let { chat, onRenameChat }: Props = $props()
+    let { chat, onRenameChat, onDeleteChat }: Props = $props()
 
 	async function deleteChat() {
 		const resp = await fetch(`/api/chat/${chat.id}`, {
 			method: 'DELETE'
 		})
 		if (resp.ok) {
-			goto('/', { invalidateAll: true })
+            onDeleteChat(chat.id!)
 		}
         dropdownOpen = false
 	}
@@ -36,7 +37,7 @@
 		})
 
         if (resp.ok) {
-            goto(window.location.pathname, { invalidateAll: true })
+            invalidateAll()
         }
 
 		dropdownOpen = false
@@ -68,7 +69,7 @@
 
 <div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg transition-colors", page.params.chatId === chat.id && 'bg-gray-200')}>
     <a href={`/chat/${chat.id}`} class="flex-1 py-3 pl-3 flex gap-2 items-center overflow-hidden whitespace-nowrap text-ellipsis">
-        <div class={cn("text-sm", chat.frozen ? "text-blue-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
+        <div class={cn("text-sm overflow-hidden text-ellipsis", chat.frozen ? "text-blue-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
         {#if chat.frozen}
             <Snowflake class="w-3 h-3 text-blue-500" />
         {/if}
@@ -80,7 +81,7 @@
                 <EllipsisVertical />
             </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="start" class="w-fit p-1 flex flex-col gap-1">
+        <DropdownMenu.Content align="start" class="w-fit p-1 flex flex-col gap-1 [&>*]:cursor-pointer">
             <DropdownMenu.Item onclick={toggleFreezeChat}>
                 <Snowflake />
                 {#if chat.frozen}

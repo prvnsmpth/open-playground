@@ -4,21 +4,41 @@
     import AutoTextarea from '$lib/components/auto-textarea.svelte';
     import * as Accordion from '$lib/components/ui/accordion'
 	import { debounce } from '$lib/utils';
-	import { presetStore } from '$lib/client/index.svelte';
+	import { presetStore, selectedProject } from '$lib/client/index.svelte';
 	import { onMount } from 'svelte';
+    import { toast } from 'svelte-sonner';
+	import type { Chat } from '$lib';
 
     const preset = $derived(presetStore.value)
 
+    let { data } = $props()
+
     let chatMsg = $state('')
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
+    let chatMsgInputError: string | null = $state(null)
 
     async function onSubmit() {
+        console.log(`Creating chat in project: ${selectedProject.value.name}`)
+        if (!chatMsg) {
+            chatMsgInputError = 'Please enter a message'
+            chatMsgInput?.focus()
+            return
+        }
+
+        if (!preset.config.model) {
+            toast.error('Please select a model')
+            return
+        }
+
         const resp = await fetch('/api/chat', { 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ systemPrompt: systemPrompt.value })
+            body: JSON.stringify({ 
+                projectId: selectedProject.value.id,
+                systemPrompt: systemPrompt.value 
+            })
         })
         if (!resp.ok) {
             console.error('Failed to create chat:', await resp.text())
@@ -26,6 +46,20 @@
         }
 
         const { chatId } = await resp.json()
+        const newChat: Chat = {
+            id: chatId,
+            projectId: selectedProject.value.id,
+            title: 'Untitled Chat',
+            createdAt: Date.now()
+        }
+        data = {
+            ...data,
+            chats: [
+                ...data.chats,
+                newChat
+            ]
+        }
+
         goto(`/chat/${chatId}`, { 
             invalidateAll: true, 
             state: { 
@@ -41,8 +75,8 @@
         preset.config.systemPrompt = prompt
     }, 300)
 
-    let systemPrompt = $state({
-        prompt: '',
+    let systemPrompt = $derived({
+        prompt: preset.config.systemPrompt || '',
 
         get value() {
             return this.prompt
@@ -56,18 +90,17 @@
 
     let initializing = $state(true)
     onMount(() => {
-        systemPrompt.value = preset.config.systemPrompt || ''
         initializing = false
     })
 </script>
 
 <div class="flex-1 min-h-0 flex flex-col gap-4 items-center justify-center px-8">
-    <div class="prose">
+    <div class="prose pt-8">
         <h2>Start a new chat</h2>
     </div>
     {#if !initializing}
         <div class="flex border prose w-full max-w-screen-md rounded-2xl p-4">
-            <Accordion.Root type="single" class="w-full" value={systemPrompt ? 'systemPrompt' : undefined}>
+            <Accordion.Root type="single" class="w-full" value={systemPrompt.value ? 'systemPrompt' : undefined}>
                 <Accordion.Item value="systemPrompt" class="border-none">
                     <Accordion.Trigger class="hover:no-underline border-b-none text-sm py-0 w-full font-bold">
                         System prompt
@@ -82,5 +115,6 @@
             </Accordion.Root>
         </div>
     {/if}
-    <MessageInput bind:chatMsg bind:chatMsgInput {onSubmit} />
+    <div class="flex-1"></div>
+    <MessageInput bind:chatMsg bind:chatMsgInput {onSubmit} error={chatMsgInputError} />
 </div>

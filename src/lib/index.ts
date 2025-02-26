@@ -20,8 +20,59 @@ export type PresetConfig = {
 }
 
 export type Preset = {
-    id: string,
-    name: string,
+    id?: string,
+    name?: string,
     config: PresetConfig,
     createdAt: number
 }
+
+export type Project = {
+    id: string,
+    name: string,
+    createdAt: number
+}
+
+export type Chat = {
+    id?: string
+    projectId: string
+    title?: string
+    systemPrompt?: string
+    frozen?: boolean
+    createdAt?: number;
+}
+
+export type ChatMessage = {
+    id?: string;
+    chatId: string;
+    messageSeqNum: number;
+    message: ChatMessageContent;
+    model?: string
+    createdAt?: number;
+}
+
+export type ChatMessageContent = {
+    role: string;
+    content: string;
+}
+
+export type Usage = {
+    promptTokens: number;
+    completionTokens: number
+}
+
+export const DefaultPreset: Preset = {
+    config: {
+        temperature: 0.7,
+        maxTokens: 2048,
+        topP: 1,
+        tools: [Tool.CodeInterpreter],
+    },
+    createdAt: Date.now(),
+}
+
+export const DefaultProject: Project = {
+    id: 'p_default',
+    name: 'Default Project',
+    createdAt: Date.now(),
+}
+

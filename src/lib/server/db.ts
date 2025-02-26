@@ -1,39 +1,15 @@
-import type { Preset, PresetConfig } from "$lib"
+import { type Preset, type PresetConfig } from "$lib"
 import sqlite3 from "sqlite3"
 import { ulid } from "ulid"
 import logger from '$lib/server/logger'
+import type { Project, Chat, ChatMessage } from "$lib"
+import { DefaultProject, DefaultPreset } from "$lib"
 
 export enum EntityType {
+    Project = 'p',
     Chat = 'c',
     ChatMessage = 'cm',
     Preset = 'pr'
-}
-
-export type Chat = {
-    id?: string
-    title?: string
-    systemPrompt?: string
-    frozen?: boolean
-    createdAt?: string;
-}
-
-export type ChatMessage = {
-    id?: string;
-    chatId: string;
-    messageSeqNum: number;
-    message: ChatMessageContent;
-    model?: string
-    createdAt?: number;
-}
-
-export type ChatMessageContent = {
-    role: string;
-    content: string;
-}
-
-export type Usage = {
-    promptTokens: number;
-    completionTokens: number
 }
 
 class IdGen {
@@ -57,12 +33,22 @@ export class DbService {
 
         this.db.serialize(() => {
             this.db.run(`
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
+            this.db.run(`INSERT INTO projects (id, name) VALUES (?, ?) ON CONFLICT DO NOTHING`, [DefaultProject.id, DefaultProject.name])
+            this.db.run(`
                 CREATE TABLE IF NOT EXISTS chats (
                     id TEXT PRIMARY KEY, 
+                    project_id TEXT,
                     title TEXT NULL,
                     system_prompt TEXT NULL,
                     frozen BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(project_id) REFERENCES projects(id)
                 )
             `);
             this.db.run(`
@@ -98,6 +84,7 @@ export class DbService {
     private makeChat(row: any): Chat {
         return {
             id: row.id,
+            projectId: row.project_id,
             title: row.title,
             systemPrompt: row.system_prompt,
             frozen: row.frozen,
@@ -116,10 +103,10 @@ export class DbService {
         };
     }
 
-    async createChat(systemPrompt: string | null = null): Promise<string> {
+    async createChat(projectId: string, systemPrompt: string | null = null): Promise<string> {
         return new Promise((resolve, reject) => {
             const id = IdGen.generate(EntityType.Chat)
-            this.db.run("INSERT INTO chats (id, system_prompt) VALUES (?, ?)", [id, systemPrompt], function (err) {
+            this.db.run("INSERT INTO chats (id, project_id, system_prompt) VALUES (?, ?, ?)", [id, projectId, systemPrompt], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -171,11 +158,11 @@ export class DbService {
         });
     }
 
-    async listChats(frozen?: boolean, offset: number = 0, limit: number = 50): Promise<Chat[]> {
+    async listChats(projectId: string, frozen?: boolean, offset: number = 0, limit: number = 50): Promise<Chat[]> {
         const whereClause = frozen !== undefined ? "WHERE frozen = ?" : "";
-        const params = frozen !== undefined ? [frozen, limit, offset] : [limit, offset];
+        const params = frozen !== undefined ? [projectId, frozen, limit, offset] : [projectId, limit, offset];
         return new Promise((resolve, reject) => {
-            this.db.all(`SELECT * FROM chats ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`, params, (err, rows) => {
+            this.db.all(`SELECT * FROM chats ${whereClause} WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, params, (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -368,6 +355,8 @@ export class DbService {
             this.db.get("SELECT * FROM presets WHERE id = ?", [id], function (err, row: any) {
                 if (err) {
                     reject(err);
+                } else if (!row) {
+                    resolve(null)
                 } else {
                     resolve({
                         id: row.id,
@@ -387,6 +376,63 @@ export class DbService {
                     reject(err);
                 } else {
                     resolve()
+                }
+            });
+        });
+    }
+
+    async updatePreset(id: string, config: PresetConfig): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.db.run("UPDATE presets SET preset = ? WHERE id = ?", [JSON.stringify(config), id], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve()
+                }
+            });
+        });
+    }
+
+    async listProjects(): Promise<Project[]> {
+        return new Promise((resolve, reject) => {
+            this.db.all("SELECT id, name FROM projects ORDER BY created_at DESC", [], function (err, rows: any[]) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows.map(row => ({
+                        id: row.id,
+                        name: row.name,
+                        createdAt: row.created_at
+                    })))
+                }
+            });
+        });
+    }
+
+    async createProject(name: string): Promise<string> {
+        const id = IdGen.generate(EntityType.Project)
+        return new Promise((resolve, reject) => {
+            this.db.run("INSERT INTO projects (id, name) VALUES (?, ?)", [id, name], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(id)
+                }
+            });
+        });
+    }
+
+    async getProject(id: string): Promise<Project | null> {
+        return new Promise((resolve, reject) => {
+            this.db.get("SELECT id, name, created_at FROM projects WHERE id = ?", [id], function (err, row: any) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row ? {
+                        id: row.id,
+                        name: row.name,
+                        createdAt: row.created_at
+                    } : null)
                 }
             });
         });
