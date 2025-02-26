@@ -34,12 +34,15 @@ The playground uses [ollama](https://ollama.com) to interact with local LLMs. Su
 If you already have ollama running on your machine, you can spin up an instance of the playground with:
 
 ```bash
-docker run --rm \
+# Create db file to persist data outside the container
+touch playground.db
+
+docker run \
     --name open-playground \
     --add-host=host.docker.internal:host-gateway \
     -p 3000:3000 \
     -e OLLAMA_HOST=http://host.docker.internal:11434 \ # Assuming ollama is running on port 11434
-    -v ./playground.db:/app/playground.db \ # Optional: persist the database
+    -v ./playground.db:/app/playground.db \
     ghcr.io/prvnsmpth/open-playground:latest
 ```
 
