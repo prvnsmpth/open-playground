@@ -346,7 +346,7 @@ export class DbService {
 
     async listPresets(): Promise<Pick<Preset, 'id' | 'name'>[]> {
         return new Promise((resolve, reject) => {
-            this.db.all("SELECT id, name FROM presets", [], function (err, rows: any[]) {
+            this.db.all("SELECT id, name FROM presets ORDER BY created_at DESC LIMIT 20", [], function (err, rows: any[]) {
                 if (err) {
                     reject(err);
                 } else {

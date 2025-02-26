@@ -1,6 +1,6 @@
 <script lang="ts">
     import Check from 'lucide-svelte/icons/check';
-    import { ChevronsUpDown, Blocks } from 'lucide-svelte';
+    import { ChevronsUpDown, Waypoints } from 'lucide-svelte';
     import { tick } from 'svelte';
     import * as Command from '$lib/components/ui/command/index.js';
     import * as Popover from '$lib/components/ui/popover/index.js';
@@ -47,7 +47,7 @@
                 aria-expanded={open}
             >
                 <div class="flex items-center gap-1">
-                    <Blocks />
+                    <Waypoints />
                     {selectedValue || placeholder}
                 </div>
                 <ChevronsUpDown class="opacity-50" />

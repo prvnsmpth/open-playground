@@ -3,7 +3,7 @@
     import ChatComponent from '$lib/components/chat.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
     import * as Select from '$lib/components/ui/select';
-    import { SquarePen, TriangleAlert, ExternalLink } from 'lucide-svelte';
+    import { SquarePen, TriangleAlert, ExternalLink, Cog } from 'lucide-svelte';
     import { presetStore } from '$lib/client/index.svelte'
     import { Tool } from '$lib'
     import Tooltip from '$lib/components/basic-tooltip.svelte'
@@ -113,6 +113,11 @@
         }
 
         savePresetDialogOpen = false
+
+        const { id } = await resp.json()
+        await fetchAndLoadPreset(id)
+
+        invalidateAll()
     }
 
     async function fetchAndLoadPreset(presetId: string) {
@@ -250,9 +255,12 @@
     </div>
     <div class="flex flex-col h-full border-l overflow-y-auto">
         <div class="flex w-full justify-start items-center p-2 h-14 border-b">
-            <Select.Root type="single" name="model" bind:open={presetSelectOpen} onValueChange={fetchAndLoadPreset}>
-                <Select.Trigger class="w-full flex gap-2 text-foreground">
-                    {presetStore.value.name ?? "Select a preset"}
+            <Select.Root type="single" name="model" bind:open={presetSelectOpen} value={presetStore.value.id} onValueChange={fetchAndLoadPreset}>
+                <Select.Trigger class="w-full flex items-start gap-2 text-foreground">
+                    <div class="flex gap-2 items-center">
+                        <Cog class="w-4 h-4" />
+                        {presetStore.value.name ?? "Select a preset"}
+                    </div>
                 </Select.Trigger>
                 <Select.Content align="start">
                     {#each data.presets as preset}
@@ -271,8 +279,7 @@
                             placeholder="Select a model" 
                             emptyMessage="No models found" 
                             items={data.models.map((m: any) => ({ value: m, label: m }))} 
-                            onItemSelect={handleModelChange}
-                        />
+                            onItemSelect={handleModelChange} />
                     </div>
                     <button class="underline text-xs" onclick={() => modelPullDialogOpen = true}>Pull model</button>
                 </div>

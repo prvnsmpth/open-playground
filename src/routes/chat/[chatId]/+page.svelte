@@ -382,8 +382,8 @@
 <div class="flex-1 min-h-0 flex flex-col items-center">
     <div class="flex-1 flex flex-col items-center py-8 w-full overflow-y-auto">
         <div class="flex mb-8 border prose w-full max-w-screen-md rounded-lg p-4">
-            <Accordion.Root type="single" class="w-full">
-                <Accordion.Item value="reasoning" class="border-none">
+            <Accordion.Root type="single" class="w-full" value={data.chat.systemPrompt ? 'systemPrompt' : undefined}>
+                <Accordion.Item value="systemPrompt" class="border-none">
                     <Accordion.Trigger class="hover:no-underline border-b-none text-sm py-0 w-full font-bold">
                         System prompt
                     </Accordion.Trigger>

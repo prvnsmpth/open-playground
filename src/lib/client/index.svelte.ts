@@ -42,7 +42,7 @@ export function localStore<T>(key: string, value: T) {
 
 const defaultPreset: Preset = {
     id: 'default',
-    name: 'Default',
+    name: 'Default Preset',
     config: {
         temperature: 0.7,
         maxTokens: 2048,
