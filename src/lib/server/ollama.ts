@@ -171,7 +171,7 @@ class OllamaClient {
 
     private getOutputFormat(outputFormat?: OutputFormat) {
         if (!outputFormat || outputFormat.type === 'text') {
-            return outputFormat
+            return undefined
         }
 
         if (outputFormat?.type === 'json') {

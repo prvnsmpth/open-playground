@@ -46,20 +46,6 @@
         }
 
         const { chatId } = await resp.json()
-        const newChat: Chat = {
-            id: chatId,
-            projectId: selectedProject.value.id,
-            title: 'Untitled Chat',
-            createdAt: Date.now()
-        }
-        data = {
-            ...data,
-            chats: [
-                ...data.chats,
-                newChat
-            ]
-        }
-
         goto(`/chat/${chatId}`, { 
             invalidateAll: true, 
             state: { 
