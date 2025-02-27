@@ -5,9 +5,9 @@ class LocalStore<T> {
     public value = $state<T>() as T
     public key
 
-    constructor(key: string, value: T) {
+    constructor(key: string, initValue: T) {
         this.key = key
-        this.value = value
+        this.value = initValue
 
         if (browser) {
             const item = localStorage.getItem(key)
@@ -35,8 +35,8 @@ class LocalStore<T> {
     }
 }
 
-export function localStore<T>(key: string, value: T) {
-    return new LocalStore<T>(key, value)
+export function localStore<T>(key: string, defaultValue: T) {
+    return new LocalStore<T>(key, defaultValue)
 }
 
 export const presetStore = localStore<Preset>('preset', DefaultPreset)

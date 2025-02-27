@@ -9,7 +9,7 @@
 
     type Props = {
         chat: Chat,
-        onRenameChat: (chatId: string) => void
+        onRenameChat: (chatId: string, chatTitle: string) => void
         onDeleteChat: (chatId: string) => void
     }
 
@@ -90,7 +90,7 @@
                     Freeze
                 {/if}
             </DropdownMenu.Item>
-            <DropdownMenu.Item onclick={() => onRenameChat(chat.id!)}>
+            <DropdownMenu.Item onclick={() => onRenameChat(chat.id!, chat.title!)}>
                 <SquarePen />
                 Rename
             </DropdownMenu.Item>

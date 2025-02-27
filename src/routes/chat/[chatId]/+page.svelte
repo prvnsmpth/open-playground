@@ -143,6 +143,7 @@
                 topP: preset.topP,
             },
             tools: preset.tools,
+            outputFormat: preset.outputFormat
         }
         chatMsg = ''
         if (req.message) {
@@ -262,10 +263,6 @@
     }
 
     let { data }: PageProps = $props()
-    $inspect(data).with((type, val) => {
-        console.log('data', type, val)
-    })
-
     let scrollAnchor: HTMLDivElement | undefined = $state()
 
     function onMessageDelete() {

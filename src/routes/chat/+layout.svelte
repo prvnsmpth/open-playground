@@ -1,30 +1,32 @@
 <script lang="ts">
-    import { invalidateAll } from '$app/navigation';
-    import { DefaultPreset, Tool, type Preset } from '$lib';
-    import { presetStore, selectedProject } from '$lib/client/index.svelte';
-    import Tooltip from '$lib/components/basic-tooltip.svelte';
-    import ChatComponent from '$lib/components/chat.svelte';
-    import CircularLoader from '$lib/components/circular-loader.svelte';
-    import Combobox from '$lib/components/combobox.svelte';
-    import Button from '$lib/components/ui/button/button.svelte';
-    import { Checkbox } from '$lib/components/ui/checkbox';
-    import * as Dialog from '$lib/components/ui/dialog';
-    import { Input } from '$lib/components/ui/input';
-    import { Label } from '$lib/components/ui/label';
-    import * as Select from '$lib/components/ui/select';
-    import { Slider } from '$lib/components/ui/slider';
-    import { Toaster } from '$lib/components/ui/sonner';
-    import { ExternalLink, Plus, SquarePen, TriangleAlert, X } from 'lucide-svelte';
-    import type { ProgressResponse } from 'ollama';
-    import { onMount } from 'svelte';
-    import { toast } from "svelte-sonner";
+    import { invalidateAll } from '$app/navigation'
+    import { DefaultPreset, Tool, type Preset } from '$lib'
+    import { presetStore } from '$lib/client/index.svelte'
+    import Tooltip from '$lib/components/basic-tooltip.svelte'
+    import CircularLoader from '$lib/components/circular-loader.svelte'
+    import Combobox from '$lib/components/combobox.svelte'
+    import Button from '$lib/components/ui/button/button.svelte'
+    import { Checkbox } from '$lib/components/ui/checkbox'
+    import * as Dialog from '$lib/components/ui/dialog'
+    import { Input } from '$lib/components/ui/input'
+    import { Label } from '$lib/components/ui/label'
+    import * as Select from '$lib/components/ui/select'
+    import { Slider } from '$lib/components/ui/slider'
+    import { Toaster } from '$lib/components/ui/sonner'
+    import { ExternalLink, SquarePen, TriangleAlert, X } from 'lucide-svelte'
+    import type { ProgressResponse } from 'ollama'
+    import { onMount } from 'svelte'
+    import { toast } from "svelte-sonner"
+    import ChatListView from './chat-list-view.svelte'
+    import OutputFormatComponent from './output-format.svelte'
 
     let { data, children } = $props();
 
-    let origPresetJson = JSON.stringify(presetStore.value)
+    // Preset that is persisted to db.
+    let persistedPreset = $state<Preset | null>(null) 
     let preset = $derived(presetStore.value.config)
     let presetModified = $derived.by(() => {
-        return JSON.stringify(presetStore.value) !== origPresetJson
+        return JSON.stringify(presetStore.value) !== JSON.stringify(persistedPreset)
     })
 
     onMount(() => {
@@ -33,66 +35,18 @@
         }
 
         if (presetStore.value.id) {
-            // This will clear any unsaved changes made to the preset in local storage
-            fetchAndLoadPreset(presetStore.value.id)
+            fetchPreset(presetStore.value.id).then(preset => {
+                if (preset) {
+                    persistedPreset = preset
+                }
+            })
         }
     })
-
-    let loadingChats = $state(false)
-    async function fetchChats(projectId: string) {
-        loadingChats = true
-        const resp = await fetch(`/api/chat?projectId=${projectId}`)
-        loadingChats = false
-        if (!resp.ok) {
-            toast.error('Failed to fetch chats')
-            return null
-        }
-        const { chats } = await resp.json()
-        data = {
-            ...data,
-            chats: [
-                ...chats
-            ]
-        }
-    }
 
     let presetSelectOpen = $state(false)
 
     function handleModelChange(model: string) {
         presetStore.value.config.model = model
-    }
-
-    let newChatTitle = $state('')
-    let renameChatDialogOpen = $state(false)
-    let renameChatId = $state<string | null>(null)
-    function onRenameChat(chatId: string) {
-        renameChatId = chatId
-        renameChatDialogOpen = true
-    }
-    async function renameChat() {
-        if (!newChatTitle || !renameChatId) {
-            return
-        }
-
-        const resp = await fetch(`/api/chat/${renameChatId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                title: newChatTitle
-            })
-        })
-
-        if (!resp.ok) {
-            console.error('Failed to rename chat', await resp.text())
-            return
-        }
-
-        renameChatDialogOpen = false
-        renameChatId = null
-        newChatTitle = ''
-        invalidateAll()
     }
 
     let codeInterpreterEnabled = {
@@ -108,13 +62,6 @@
             } else {
                 preset.tools = preset.tools.filter((tool) => tool !== Tool.CodeInterpreter)
             }
-        }
-    }
-
-    function onDeleteChat(chatId: string) {
-        data = {
-            ...data,
-            chats: data.chats.filter(chat => chat.id !== chatId)
         }
     }
 
@@ -168,17 +115,24 @@
         }
 
         toast.success('Preset updated')
+        persistedPreset = await fetchPreset(presetStore.value.id)
         invalidateAll()
     }
 
-    async function fetchAndLoadPreset(presetId: string): Promise<Preset | null> {
+    async function fetchPreset(presetId: string): Promise<Preset | null> {
         const resp = await fetch(`/api/preset/${presetId}`)
         if (!resp.ok) {
             console.error('Failed to load preset', await resp.text())
             return null
         }
+        return await resp.json()
+    }
 
-        const preset = await resp.json()
+    async function fetchAndLoadPreset(presetId: string): Promise<Preset | null> {
+        const preset = await fetchPreset(presetId)
+        if (!preset) {
+            return null
+        }
         presetStore.value = preset
         presetSelectOpen = false
         return preset
@@ -255,109 +209,21 @@
         toast.success('Model pulled successfully')
         invalidateAll()
     }
-
-    let projectSelectOpen = $state(false)
-    let newProjectDialogOpen = $state(false)
-    let newProjectName = $state('')
-    let creatingProject = $state(false)
-    async function createProject(e: SubmitEvent) {
-        e.preventDefault()
-        if (!newProjectName) {
-            toast.error('Project name cannot be empty')
-            return
-        }
-
-        creatingProject = true
-        const resp = await fetch('/api/project', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: newProjectName
-            })
-        })
-        creatingProject = false
-
-        if (!resp.ok) {
-            toast.error('Failed to create project')
-            return
-        }
-
-        const { id } = await resp.json()
-        const newProject = {
-            id,
-            name: newProjectName,
-            createdAt: Date.now()
-        }
-        data = {
-            ...data,
-            projects: [
-                ...data.projects,
-                newProject
-            ]
-        }
-
-        newProjectDialogOpen = false
-        projectSelectOpen = false
-        selectedProject.value = newProject
-        await fetchChats(id)
-    }
-    async function onProjectSelect(id: string) {
-        const project = data.projects.filter(p => p.id === id)[0]
-        if (!project) {
-            return
-        }
-        selectedProject.value = project
-        await fetchChats(id)
-    }
 </script>
 
 <Toaster position="top-center" />
 
 <main class="grid h-screen grid-cols-1 lg:grid-cols-[280px_1fr_320px]">
     <div class="flex flex-col h-full border-r bg-muted overflow-y-auto">
-        <div class="flex w-full justify-center items-center p-2 h-14 border-b">
-            <Select.Root type="single" name="model" bind:open={projectSelectOpen} value={selectedProject.value.id} onValueChange={onProjectSelect}>
-                <Select.Trigger class="w-full flex items-center justify-center gap-2 text-muted-foreground font-semibold bg-muted border-none">
-                    {selectedProject.value.name}
-                </Select.Trigger>
-                <Select.Content align="start">
-                    <Select.Group>
-                        <Select.GroupHeading class="text-xs text-muted-foreground uppercase">Projects</Select.GroupHeading>
-                        {#each data.projects as project}
-                            <Select.Item value={project.id} label={project.name} class="rounded-lg my-1 cursor-pointer">{project.name}</Select.Item>
-                        {/each}
-                    </Select.Group>
-                    <hr>
-                    <Select.Group class="mt-1">
-                        <Button variant="ghost" class="w-full justify-start gap-2 cursor-pointer" onclick={() => newProjectDialogOpen = true}>
-                            <Plus class="w-4 h-4" />
-                            New Project
-                        </Button>
-                    </Select.Group>
-                </Select.Content>
-            </Select.Root>
-        </div>
-        <div class="flex-1 min-h-0 overflow-y-auto pb-10">
-            {#if loadingChats}
-                <div class="h-full flex justify-center pt-8">
-                    <p class="text-muted-foreground text-xs uppercase text-center font-bold">
-                        Loading chats...
-                    </p>
-                </div>
-            {:else}
-                {#each data.chats as chat}
-                    <ChatComponent {chat} {onRenameChat} {onDeleteChat} />
-                {:else}
-                    <div class="h-full flex justify-center pt-8">
-                        <p class="text-muted-foreground text-xs uppercase text-center font-bold">
-                            No chats found
-                        </p>
-                    </div>
-                {/each}
-            {/if}
-        </div>
+        <ChatListView 
+            projects={data.projects}
+            onProjectCreate={(p) => {
+                data = {
+                    ...data,
+                    projects: [p, ...data.projects]
+                }
+            }}
+        />
     </div>
     <div class="flex h-screen flex-col">
         <div class="border-b h-14 flex items-center px-2">
@@ -391,7 +257,7 @@
                     <div class="flex gap-2 items-center justify-between w-full">
                         {presetStore.value.name ?? 'Select a preset'}
                         {#if presetStore.value.id}
-                            <Button variant="ghost" size="icon" class="w-4 h-4 p-1" onclick={(e) => { presetStore.value = DefaultPreset; e.stopPropagation() }}>
+                            <Button variant="ghost" size="icon" class="w-4 h-4 p-1" onclick={(e) => { presetStore.value = DefaultPreset; e.stopPropagation(); }}>
                                 <X class="w-3 h-3" />
                             </Button>
                         {/if}
@@ -421,6 +287,8 @@
                     <button class="underline text-xs" onclick={() => modelPullDialogOpen = true}>Pull model</button>
                 </div>
             </div>
+
+            <OutputFormatComponent />
 
             <div class="prose">
                 <p class="uppercase font-bold text-xs">Tools</p>
@@ -476,21 +344,6 @@
     </div>
 </main>
 
-<Dialog.Root bind:open={renameChatDialogOpen}>
-    <Dialog.Content class="max-w-sm">
-        <Dialog.Header>
-            <Dialog.Title>Rename chat</Dialog.Title>
-        </Dialog.Header>
-        <Input type="text" 
-            bind:value={newChatTitle} 
-            placeholder="Enter new chat title..." />
-        <Dialog.Footer>
-            <Button variant="outline" onclick={() => renameChatDialogOpen = false}>Cancel</Button>
-            <Button type="submit" onclick={renameChat}>Rename</Button>
-        </Dialog.Footer>
-    </Dialog.Content>
-</Dialog.Root>
-
 <Dialog.Root bind:open={savePresetDialogOpen}>
     <Dialog.Content class="max-w-sm">
         <Dialog.Header>
@@ -542,34 +395,4 @@
             </Button>
         </Dialog.Footer>
     </Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={newProjectDialogOpen}>
-        <Dialog.Content class="max-w-sm">
-            <Dialog.Header>
-                <Dialog.Title>New Project</Dialog.Title>
-                <Dialog.Description>
-                    Projects help you group conversations together. Create a new project for each task, and then build conversation datasets to fine-tune models for that task.
-                </Dialog.Description>
-            </Dialog.Header>
-            <form onsubmit={createProject} class="flex flex-col gap-3">
-                <Label for="name">Name</Label>
-                <Input 
-                    id="name" 
-                    type="text" 
-                    bind:value={newProjectName} 
-                    placeholder="E.g., Data Analytics Bot" />
-                <Dialog.Footer>
-                    <Button variant="outline" onclick={() => savePresetDialogOpen = false}>Cancel</Button>
-                    <Button type="submit" disabled={creatingProject}>
-                        {#if creatingProject}
-                            <CircularLoader />
-                            Creating...
-                        {:else}
-                            Create
-                        {/if}
-                    </Button>
-                </Dialog.Footer>
-            </form>
-        </Dialog.Content>
 </Dialog.Root>

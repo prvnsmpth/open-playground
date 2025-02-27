@@ -1,6 +1,6 @@
 import { Ollama, type ModelResponse } from "ollama"
 import { connect, DbService } from "./db"
-import type { ChatMessage, Usage } from '$lib'
+import type { ChatMessage, OutputFormat, Usage } from '$lib'
 import { execSync } from "child_process"
 import { Tool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
@@ -169,12 +169,28 @@ class OllamaClient {
         return stream
     }
 
-    async sendMessage(chatId: string, msg: string | null, model: string, modelConfig: any, tools: Tool[] = []) {
+    private getOutputFormat(outputFormat?: OutputFormat) {
+        if (!outputFormat || outputFormat.type === 'text') {
+            return outputFormat
+        }
+
+        if (outputFormat?.type === 'json') {
+            return 'json'
+        }
+
+        if (outputFormat?.type === 'json_schema') {
+            return outputFormat.schema.schema
+        }
+
+        throw new Error(`Invalid output format: ${outputFormat?.type}`)
+    }
+
+    async sendMessage(chatId: string, msg: string | null, model: string, modelConfig: any, tools: Tool[] = [], outputFormat?: OutputFormat) {
         await this.ensureModel(model)
         const id = msg ? await this.db.addMessage(chatId, 'user', msg, model) : null
         const chat = await this.db.getChat(chatId)
         if (!chat) {
-            throw new Error('Chat not found')            
+            throw new Error('Chat not found')
         }
 
         const messages = await this.db.getMessages(chatId)
@@ -186,6 +202,7 @@ class OllamaClient {
                 ...messages.map(cm => cm.message)
             ],
             stream: true,
+            format: this.getOutputFormat(outputFormat),
             options: {
                 num_ctx: this.CTX_LEN,
                 temperature: modelConfig.temperature,
@@ -220,19 +237,6 @@ class OllamaClient {
                 const toolOutputId = await this.db.addMessage(chatId, 'tool', codeOutput, model)
                 sendJson(controller, { type: 'tool', content: codeOutput })
                 sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
-
-                // const codeBlocks = this.extractCodeBlocks(currResp)
-                // if (codeBlocks.length === 0) {
-                //     break
-                // }
-
-                // const codeStr = codeBlocks.join('\n')
-                // sendJson(controller, { type: 'tool_exec_start', content: 'Executing code...' })
-                // const output = await this.executeCode(codeStr)
-
-                // const toolOutputId = await db.addMessage(chatId, 'tool', output, model)
-                // sendJson(controller, { type: 'tool', content: output })
-                // sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
 
                 const messages = await this.db.getMessages(chatId)
                 const resp = await this.client.chat({
@@ -311,7 +315,7 @@ class OllamaClient {
                     if (err instanceof DOMException && err.name === 'AbortError') {
                         logger.info({ message: 'Stream aborted', chatId, messageId: id })
                     } else {
-                        logger.error({ message: 'Error reading response', error: err })
+                        logger.error({ message: 'Error reading response', error: JSON.stringify(err, Object.getOwnPropertyNames(err)) })
                     }
                 } finally {
                     const finalMessages = await db.getMessages(chatId)

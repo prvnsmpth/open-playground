@@ -6,10 +6,17 @@ export const POST: RequestHandler = async ({ params, request, locals })  => {
         throw error(400, 'Invalid chatId')
     }
 
-    const { message, model, modelConfig, tools } = await request.json()
+    const { message, model, modelConfig, tools, outputFormat } = await request.json()
 
     try {
-        const stream = await locals.ollama.sendMessage(chatId, message, model, modelConfig, tools)
+        const stream = 
+            await locals.ollama.sendMessage(
+                chatId, 
+                message, 
+                model, 
+                modelConfig, 
+                tools, 
+                outputFormat)
         return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })
     } catch (err) {
         console.error('Error sending message', err)

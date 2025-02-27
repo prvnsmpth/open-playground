@@ -10,8 +10,16 @@ export enum Tool {
     CodeInterpreter = 'code_interpreter',
 }
 
+export type OutputFormat = {
+    type: 'text' | 'json',
+} | {
+    type: 'json_schema',
+    schema?: any
+}
+
 export type PresetConfig = {
     model?: string,
+    outputFormat?: OutputFormat,
     systemPrompt?: string,
     temperature?: number,
     maxTokens?: number,
@@ -62,6 +70,9 @@ export type Usage = {
 
 export const DefaultPreset: Preset = {
     config: {
+        outputFormat: {
+            type: 'text',
+        },
         temperature: 0.7,
         maxTokens: 2048,
         topP: 1,
@@ -75,4 +86,3 @@ export const DefaultProject: Project = {
     name: 'Default Project',
     createdAt: Date.now(),
 }
-

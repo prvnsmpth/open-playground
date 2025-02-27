@@ -7,6 +7,8 @@
         value = $bindable(), 
         el = $bindable(), 
         onInput = () => {},
+        minRows = 3,
+        maxRows = 7,
         ...rest 
     } = $props()
 
@@ -20,8 +22,8 @@
             return;
         }
         el.style.height = 'auto';
-        const maxHeight = lineHeight * 7; // Max 7 rows of text
-        const minHeight = lineHeight * 3; // Min 3 rows of text
+        const maxHeight = lineHeight * maxRows
+        const minHeight = lineHeight * minRows
         let computedHeight = Math.min(Math.max(el.scrollHeight, minHeight), maxHeight)
         el.style.height = `${computedHeight}px`
     }
