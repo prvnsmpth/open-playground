@@ -3,9 +3,10 @@
 	import MessageInput from "$lib/components/message-input.svelte";
 	import { onMount } from 'svelte';
 	import Message from '$lib/components/message.svelte';
-	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
     import { page } from '$app/state'
     import { presetStore } from '$lib/client/index.svelte';
+    import { chatList } from '../index.svelte'
 	import type { StreamMessage } from '$lib';
 	import type { ChatMessage, Usage } from '$lib';
     import * as Accordion from '$lib/components/ui/accordion'
@@ -248,7 +249,15 @@
                         usage = sm.content as Usage 
                         break
                     case 'chat_title':
-                        invalidateAll()
+                        chatList.value = chatList.value.map(c => {
+                            if (c.id !== data.chat.id) {
+                                return c
+                            }
+                            return {
+                                ...c,
+                                title: sm.content
+                            }
+                        })
                         break
                     default:
                         console.error('Unexpected stream message type:', sm.type)

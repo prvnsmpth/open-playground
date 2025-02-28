@@ -1,5 +1,5 @@
 import { browser } from '$app/environment'
-import { DefaultPreset, DefaultProject, type Preset, type Project } from '$lib'
+import { DefaultPreset, DefaultProject, type Chat, type Preset, type Project } from '$lib'
 
 class LocalStore<T> {
     public value = $state<T>() as T

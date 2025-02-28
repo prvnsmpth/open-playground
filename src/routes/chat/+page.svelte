@@ -5,13 +5,12 @@
     import * as Accordion from '$lib/components/ui/accordion'
 	import { debounce } from '$lib/utils';
 	import { presetStore, selectedProject } from '$lib/client/index.svelte';
+    import { chatList } from './index.svelte'
 	import { onMount } from 'svelte';
     import { toast } from 'svelte-sonner';
 	import type { Chat } from '$lib';
 
     const preset = $derived(presetStore.value)
-
-    let { data } = $props()
 
     let chatMsg = $state('')
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
@@ -46,11 +45,22 @@
         }
 
         const { chatId } = await resp.json()
-        goto(`/chat/${chatId}`, { 
-            invalidateAll: true, 
-            state: { 
-                message: chatMsg 
-            } 
+        
+        // Add the new chat to the chat list store
+        const newChat: Chat = {
+            id: chatId,
+            projectId: selectedProject.value.id,
+            title: 'Untited Chat',
+            systemPrompt: systemPrompt.value,
+            createdAt: Date.now()
+        }
+        chatList.value.unshift(newChat)
+        
+        goto(`/chat/${chatId}`, {
+            invalidateAll: true,
+            state: {
+                message: chatMsg
+            }
         })
     }
 

@@ -2,8 +2,9 @@
     import * as Select from '$lib/components/ui/select'
     import { NotebookText } from 'lucide-svelte'
     import { selectedProject } from '$lib/client/index.svelte';
+    import { chatList } from './index.svelte'
     import { toast } from 'svelte-sonner'
-    import type { Chat, Project } from '$lib'
+    import type { Project } from '$lib'
     import { Button } from '$lib/components/ui/button'
     import { Label } from '$lib/components/ui/label'
     import { Input } from '$lib/components/ui/input'
@@ -26,7 +27,6 @@
     let newProjectName = $state('')
     let creatingProject = $state(false)
     let loadingChats = $state(true)
-    let chats = $state<Chat[]>([])
     let newChatTitle = $state('')
     let renameChatDialogOpen = $state(false)
     let renameChatId = $state<string | null>(null)
@@ -93,7 +93,7 @@
             return null
         }
         const data = await resp.json()
-        chats = data.chats
+        chatList.value = data.chats
     }
 
     function onRenameChat(chatId: string, chatTitle: string) {
@@ -103,7 +103,7 @@
     }
 
     function onDeleteChat(chatId: string) {
-        chats = chats.filter(c => c.id !== chatId)
+        chatList.value = chatList.value.filter(c => c.id !== chatId)
     }
 
     async function renameChat() {
@@ -129,6 +129,8 @@
         renameChatDialogOpen = false
         renameChatId = null
         newChatTitle = ''
+        
+        await fetchChats(selectedProject.value.id)
         invalidateAll()
     }
 </script>
@@ -137,7 +139,7 @@
     <Select.Root type="single" name="model" bind:open={projectSelectOpen} value={selectedProject.value.id} onValueChange={onProjectSelect}>
         <Select.Trigger class="w-full flex items-center justify-center gap-2 text-muted-foreground font-semibold bg-muted border-none">
             <NotebookText class="w-4 h-4 text-muted-foreground" />
-            {selectedProject.value.name}
+            {selectedProject.value.name} 
         </Select.Trigger>
         <Select.Content align="start">
             <Select.Group>
@@ -164,7 +166,7 @@
             </p>
         </div>
     {:else}
-        {#each chats as chat}
+        {#each chatList.value as chat}
             <ChatComponent {chat} {onRenameChat} {onDeleteChat} />
         {:else}
             <div class="h-full flex justify-center pt-8">
