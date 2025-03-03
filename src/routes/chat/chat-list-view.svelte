@@ -1,6 +1,6 @@
 <script lang="ts">
     import * as Select from '$lib/components/ui/select'
-    import { NotebookText } from 'lucide-svelte'
+    import { NotebookText, Settings } from 'lucide-svelte'
     import { selectedProject } from '$lib/client/index.svelte';
     import { chatList } from './index.svelte'
     import { toast } from 'svelte-sonner'
@@ -137,9 +137,11 @@
 
 <div class="flex w-full justify-center items-center p-2 h-14 border-b">
     <Select.Root type="single" name="model" bind:open={projectSelectOpen} value={selectedProject.value.id} onValueChange={onProjectSelect}>
-        <Select.Trigger class="w-full flex items-center justify-center gap-2 text-muted-foreground font-semibold bg-muted border-none">
-            <NotebookText class="w-4 h-4 text-muted-foreground" />
-            {selectedProject.value.name} 
+        <Select.Trigger class="w-full flex items-center justify-between gap-2 text-muted-foreground font-semibold bg-muted border-none">
+            <div class="flex items-center gap-2">
+                <NotebookText class="w-4 h-4 text-muted-foreground" />
+                {selectedProject.value.name}
+            </div>
         </Select.Trigger>
         <Select.Content align="start">
             <Select.Group>
@@ -150,9 +152,13 @@
             </Select.Group>
             <hr>
             <Select.Group class="mt-1">
-                <Button variant="ghost" class="w-full justify-start gap-2 cursor-pointer" onclick={() => newProjectDialogOpen = true}>
+                <Button variant="ghost" class="text-sm w-full justify-start gap-2 cursor-pointer" onclick={() => newProjectDialogOpen = true}>
                     <Plus class="w-4 h-4" />
                     New Project
+                </Button>
+                <Button variant="ghost" class="text-sm w-full justify-start gap-2 cursor-pointer" href="/projects">
+                    <Settings class="w-4 h-4" />
+                    Manage Projects
                 </Button>
             </Select.Group>
         </Select.Content>

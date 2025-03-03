@@ -395,7 +395,7 @@ export class DbService {
 
     async listProjects(): Promise<Project[]> {
         return new Promise((resolve, reject) => {
-            this.db.all("SELECT id, name FROM projects ORDER BY created_at DESC", [], function (err, rows: any[]) {
+            this.db.all("SELECT id, name, created_at FROM projects ORDER BY created_at DESC", [], function (err, rows: any[]) {
                 if (err) {
                     reject(err);
                 } else {
@@ -434,6 +434,44 @@ export class DbService {
                         createdAt: row.created_at
                     } : null)
                 }
+            });
+        });
+    }
+
+    async updateProject(id: string, data: { name: string }): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.db.run("UPDATE projects SET name = ? WHERE id = ?", [data.name, id], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    async deleteProject(id: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.db.serialize(() => {
+                // First delete all messages in chats belonging to this project
+                this.db.run(`
+                    DELETE FROM messages
+                    WHERE chat_id IN (
+                        SELECT id FROM chats WHERE project_id = ?
+                    )
+                `, [id]);
+                
+                // Then delete all chats belonging to this project
+                this.db.run("DELETE FROM chats WHERE project_id = ?", [id]);
+                
+                // Finally delete the project
+                this.db.run("DELETE FROM projects WHERE id = ?", [id], function (err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
             });
         });
     }

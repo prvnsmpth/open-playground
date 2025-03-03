@@ -213,8 +213,8 @@
 
 <Toaster position="top-center" />
 
-<main class="grid h-screen grid-cols-1 lg:grid-cols-[280px_1fr_320px]">
-    <div class="flex flex-col h-full border-r bg-muted overflow-y-auto">
+<div class="grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] h-full overflow-hidden">
+    <div class="flex flex-col border-r bg-muted overflow-y-auto">
         <ChatListView 
             projects={data.projects}
             onProjectCreate={(p) => {
@@ -225,8 +225,10 @@
             }}
         />
     </div>
-    <div class="flex h-screen flex-col">
-        <div class="border-b h-14 flex items-center px-2">
+
+    <!-- Middle column-->
+    <div class="flex flex-col overflow-hidden">
+        <div class="border-b h-14 flex items-center px-2 shrink-0">
             <div class="font-bold px-4 text-lg">Chat</div>
             <div class="flex-1"></div>
             <Tooltip tooltip="New Chat">
@@ -237,8 +239,8 @@
             </Tooltip>
         </div>
         {#if data.models.length === 0}
-            <div class="flex justify-center">
-                <div class="flex items-center gap-2 bg-yellow-200 border border-yellow-500 text-yellow-800 text-sm m-3 p-2 rounded-lg w-fit">
+            <div class="m-2 w-full flex justify-center">
+                <div class="flex items-center gap-2 bg-yellow-200 border border-yellow-500 text-yellow-800 text-sm p-2 rounded-lg w-fit shadow-lg">
                     <TriangleAlert class="w-4 h-4" />
                     <span>
                         You do not have any local models yet.
@@ -248,10 +250,13 @@
                 </div>
             </div>
         {/if}
-        {@render children()}
+        <div class="flex-1 overflow-y-auto flex flex-col">
+            {@render children()}
+        </div>
     </div>
-    <div class="flex flex-col h-full border-l overflow-y-auto">
-        <div class="flex w-full justify-start items-center p-2 h-14 border-b">
+
+    <div class="flex flex-col border-l overflow-hidden">
+        <div class="flex w-full justify-start items-center p-2 h-14 border-b shrink-0">
             <Select.Root type="single" name="model" bind:open={presetSelectOpen} value={presetStore.value.id} onValueChange={fetchAndLoadPreset}>
                 <Select.Trigger class="w-full flex items-start gap-2 text-foreground">
                     <div class="flex gap-2 items-center justify-between w-full">
@@ -342,7 +347,7 @@
             {/if}
         </div>
     </div>
-</main>
+</div>
 
 <Dialog.Root bind:open={savePresetDialogOpen}>
     <Dialog.Content class="max-w-sm">
