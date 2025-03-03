@@ -45,7 +45,7 @@ export type Chat = {
     projectId: string
     title?: string
     systemPrompt?: string
-    frozen?: boolean
+    golden?: boolean
     createdAt?: number;
 }
 
@@ -66,6 +66,14 @@ export type ChatMessageContent = {
 export type Usage = {
     promptTokens: number;
     completionTokens: number
+}
+
+export type Dataset = {
+    id?: string
+    projectId: string
+    name: string
+    isDeleted: boolean
+    createdAt: string
 }
 
 export const DefaultPreset: Preset = {

@@ -5,15 +5,16 @@
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
     import type { Chat } from '$lib';
     import { cn } from '$lib/utils';
-    import { Copy, EllipsisVertical, Snowflake, SquarePen, Trash2 } from 'lucide-svelte';
+    import { Copy, EllipsisVertical, CircleCheckBig, SquarePen, Trash2 } from 'lucide-svelte';
 
     type Props = {
         chat: Chat,
         onRenameChat: (chatId: string, chatTitle: string) => void
         onDeleteChat: (chatId: string) => void
+        onToggleGolden: (chatId: string, golden: boolean) => void
     }
 
-    let { chat, onRenameChat, onDeleteChat }: Props = $props()
+    let { chat, onRenameChat, onDeleteChat, onToggleGolden }: Props = $props()
 
 	async function deleteChat() {
 		const resp = await fetch(`/api/chat/${chat.id}`, {
@@ -25,14 +26,14 @@
         dropdownOpen = false
 	}
 
-	async function toggleFreezeChat() {
+	async function toggleGoldenChat() {
 		const resp = await fetch(`/api/chat/${chat.id}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({ 
-                frozen: !chat.frozen 
+                golden: !chat.golden 
             })
 		})
 
@@ -41,6 +42,7 @@
         }
 
 		dropdownOpen = false
+        onToggleGolden(chat.id!, !chat.golden)
 	}
 
     async function cloneChat(chatId: string) {
@@ -69,9 +71,9 @@
 
 <div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg transition-colors", page.params.chatId === chat.id && 'bg-gray-200')}>
     <a href={`/chat/${chat.id}`} class="flex-1 py-3 pl-3 flex gap-2 items-center overflow-hidden whitespace-nowrap text-ellipsis">
-        <div class={cn("text-sm overflow-hidden text-ellipsis", chat.frozen ? "text-blue-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
-        {#if chat.frozen}
-            <Snowflake class="w-3 h-3 text-blue-500" />
+        <div class={cn("text-sm overflow-hidden text-ellipsis", chat.golden ? "text-amber-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
+        {#if chat.golden}
+            <CircleCheckBig class="w-3 h-3 text-amber-500" />
         {/if}
         <!-- <div class="text-xs">{formatTime(chat.createdAt, "MMMM dd, yyyy HH:mm:ss")}</div> -->
     </a>
@@ -82,12 +84,12 @@
             </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="start" class="w-fit p-1 flex flex-col gap-1 [&>*]:cursor-pointer">
-            <DropdownMenu.Item onclick={toggleFreezeChat}>
-                <Snowflake />
-                {#if chat.frozen}
-                    Unfreeze
+            <DropdownMenu.Item onclick={toggleGoldenChat}>
+                <CircleCheckBig />
+                {#if chat.golden}
+                    Unmark golden
                 {:else}
-                    Freeze
+                    Mark golden
                 {/if}
             </DropdownMenu.Item>
             <DropdownMenu.Item onclick={() => onRenameChat(chat.id!, chat.title!)}>

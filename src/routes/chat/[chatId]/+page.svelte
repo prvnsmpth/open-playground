@@ -412,7 +412,7 @@
                     chatMessage={message} 
                     {onMessageDelete} 
                     {onMessageRegenerate}
-                    editable={!data.chat.frozen} 
+                    editable={!data.chat.golden} 
                 />
             {/each}
             {#if awaitingResponse}
@@ -453,7 +453,7 @@
         <div class="flex justify-center">
             <MessageInput bind:chatMsg bind:chatMsgInput 
                 {onSubmit} 
-                disabled={data.chat.frozen} 
+                disabled={data.chat.golden} 
                 receivingResponse={streamingResponse} 
                 onStop={onStreamingStop}
             />

@@ -2,14 +2,15 @@ import { type Preset, type PresetConfig } from "$lib"
 import sqlite3 from "sqlite3"
 import { ulid } from "ulid"
 import logger from '$lib/server/logger'
-import type { Project, Chat, ChatMessage } from "$lib"
+import type { Project, Chat, ChatMessage, Dataset } from "$lib"
 import { DefaultProject, DefaultPreset } from "$lib"
 
 export enum EntityType {
     Project = 'p',
     Chat = 'c',
     ChatMessage = 'cm',
-    Preset = 'pr'
+    Preset = 'pr',
+    Dataset = 'd'
 }
 
 class IdGen {
@@ -24,13 +25,12 @@ export class DbService {
 
     constructor() {
         this.db = new sqlite3.Database(this.dbFileName);
-    }
-
-    async init() {
         this.db.on('trace', (sql) => {
             logger.info({ message: 'SQL', sql: sql })
         })
+    }
 
+    async init() {
         this.db.serialize(() => {
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS projects (
@@ -46,7 +46,7 @@ export class DbService {
                     project_id TEXT,
                     title TEXT NULL,
                     system_prompt TEXT NULL,
-                    frozen BOOLEAN DEFAULT FALSE,
+                    golden BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(project_id) REFERENCES projects(id)
                 )
@@ -77,6 +77,16 @@ export class DbService {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `)
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS datasets (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    is_deleted BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(project_id) REFERENCES projects(id)
+                )
+            `)
             this.db.run("PRAGMA foreign_keys = ON");
         });
     }
@@ -87,7 +97,7 @@ export class DbService {
             projectId: row.project_id,
             title: row.title,
             systemPrompt: row.system_prompt,
-            frozen: row.frozen,
+            golden: row.golden,
             createdAt: row.created_at,
         };
     }
@@ -142,9 +152,9 @@ export class DbService {
                 clauses.push("system_prompt = ?")
                 params.push(chat.systemPrompt)
             }
-            if (chat.frozen !== undefined) {
-                clauses.push("frozen = ?")
-                params.push(chat.frozen)
+            if (chat.golden !== undefined) {
+                clauses.push("golden = ?")
+                params.push(chat.golden)
             }
             params.push(chatId)
             const clauseStr = clauses.join(", ")
@@ -158,9 +168,9 @@ export class DbService {
         });
     }
 
-    async listChats(projectId: string, frozen?: boolean, offset: number = 0, limit: number = 50): Promise<Chat[]> {
-        const whereClause = frozen !== undefined ? "WHERE frozen = ?" : "";
-        const params = frozen !== undefined ? [projectId, frozen, limit, offset] : [projectId, limit, offset];
+    async listChats(projectId: string, golden?: boolean, offset: number = 0, limit: number = 50): Promise<Chat[]> {
+        const whereClause = golden !== undefined ? "WHERE golden = ?" : "";
+        const params = golden !== undefined ? [projectId, golden, limit, offset] : [projectId, limit, offset];
         return new Promise((resolve, reject) => {
             this.db.all(`SELECT * FROM chats ${whereClause} WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, params, (err, rows) => {
                 if (err) {
@@ -475,6 +485,86 @@ export class DbService {
             });
         });
     }
+
+    async createDataset(projectId: string, name: string): Promise<string> {
+        const id = IdGen.generate(EntityType.Dataset)
+        return new Promise((resolve, reject) => {
+            this.db.run("INSERT INTO datasets (id, project_id, name) VALUES (?, ?, ?)", [id, projectId, name], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(id)
+                }
+            });
+        });
+    }
+
+    async updateDataset(id: string, data: Partial<Dataset>): Promise<void> {
+        const clauses: string[] = []  
+        const params: any[] = []
+        if (data.projectId) {
+            clauses.push("project_id = ?")
+            params.push(data.projectId)
+        }
+        if (data.name) {
+            clauses.push("name = ?")
+            params.push(data.name)
+        }
+        if (data.isDeleted) {
+            clauses.push("is_deleted = ?")
+            params.push(data.isDeleted)
+        }
+
+        return new Promise((resolve, reject) => {
+            this.db.run(`UPDATE datasets SET ${clauses.join(", ")} WHERE id = ?`, [...params, id], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    async deleteDataset(id: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.db.run("DELETE FROM datasets WHERE id = ?", [id], function (err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    async listDatasets(projectId?: string): Promise<Dataset[]> {
+        const filters = [
+            "is_deleted = false",
+        ]
+        const params: string[] = []
+        if (projectId) {
+            filters.push("project_id = ?")
+            params.push(projectId)
+        }
+        const whereClause = filters.length > 0 ? `${filters.join(" AND ")}` : ""
+        return new Promise((resolve, reject) => {
+            this.db.all(`SELECT * FROM datasets WHERE ${whereClause} ORDER BY created_at DESC`, params, function (err, rows) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows.map((row: any) => ({
+                        id: row.id,
+                        projectId: row.project_id,
+                        name: row.name,
+                        isDeleted: row.is_deleted,
+                        createdAt: row.created_at
+                    })))
+                }
+            });
+        });
+    }
+
 }
 
 

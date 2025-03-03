@@ -106,6 +106,15 @@
         chatList.value = chatList.value.filter(c => c.id !== chatId)
     }
 
+    function onToggleGolden(chatId: string, golden: boolean) {
+        chatList.value = chatList.value.map(c => {
+            if (c.id === chatId) {
+                c.golden = golden
+            }
+            return c
+        })
+    }
+
     async function renameChat() {
         if (!newChatTitle || !renameChatId) {
             return
@@ -173,7 +182,7 @@
         </div>
     {:else}
         {#each chatList.value as chat}
-            <ChatComponent {chat} {onRenameChat} {onDeleteChat} />
+            <ChatComponent {chat} {onRenameChat} {onDeleteChat} onToggleGolden={onToggleGolden} />
         {:else}
             <div class="h-full flex justify-center pt-8">
                 <p class="text-muted-foreground text-xs uppercase text-center font-bold">

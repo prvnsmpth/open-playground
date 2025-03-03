@@ -36,7 +36,7 @@
     <form class={cn("flex items-end rounded-2xl bg-gray-100 w-full max-w-screen-md", error && "border border-red-500")} onsubmit={handleSubmit}>
         <AutoTextarea
             class={cn("w-full p-4 rounded-2xl focus-visible:ring-0 focus:outline-none resize-none bg-gray-100 text-sm lg:text-base", disabled && "cursor-not-allowed")}
-            placeholder={!disabled ? 'Type user message here...' : 'This chat is frozen'}
+            placeholder={!disabled ? 'Type user message here...' : 'This chat is marked golden and cannot be modified.'}
             {disabled}
             onkeydown={handleKeyDown}
             bind:value={chatMsg}

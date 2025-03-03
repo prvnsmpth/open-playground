@@ -6,17 +6,20 @@
 
     let { children } = $props()
 
-    const currPath = page.url.pathname
+    const currPath = $derived(page.url.pathname)
 </script>
 
 <div class="flex flex-col h-screen overflow-hidden">
     <nav class="h-10 border-b flex items-center justify-between px-4 bg-muted">
         <div class="font-semibold">open-playground</div>
         <div class="flex gap-6 font-semibold">
-            <a href="/chat" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", page.url.pathname.startsWith('/chat') && 'text-foreground')}>
+            <a href="/chat" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/chat') && 'text-foreground')}>
                 Chat
             </a>
-            <a href="/projects" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", page.url.pathname.startsWith('/projects') && 'text-foreground')}>
+            <a href="/datasets" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/datasets') && 'text-foreground')}>
+                Datasets
+            </a>
+            <a href="/projects" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/projects') && 'text-foreground')}>
                 Projects
             </a>
 
