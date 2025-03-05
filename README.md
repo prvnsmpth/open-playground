@@ -6,7 +6,7 @@
 
 Experiment with local/hosted LLMs. Build datasets for fine-tuning, benchmarking, and more.
 
-<img src="static/screenshot.png" />
+<img src="static/screenshot2.png" />
 
 # What's in the box?
 
