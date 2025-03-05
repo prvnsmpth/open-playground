@@ -1,5 +1,5 @@
 // place files you want to import through the `$lib` alias in this folder.
-import { type Tool as OllamaTool, type Message as OllamaMessage, type ToolCall as OllamaToolCall } from "ollama"
+import type { Tool as OllamaTool, Message as OllamaMessage, ToolCall as OllamaToolCall } from "ollama"
 
 // A message sent from the server to the client in a stream
 export type StreamMessage = {

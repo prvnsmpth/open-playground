@@ -12,7 +12,7 @@
     import * as Accordion from '$lib/components/ui/accordion'
     import AutoTextarea from '$lib/components/auto-textarea.svelte';
 	import { debounce } from '$lib/utils';
-    import { type Tool as OllamaTool, type ToolCall as OllamaToolCall } from 'ollama';
+    import type { ToolCall as OllamaToolCall } from 'ollama';
     import { toast } from 'svelte-sonner';
 
     let chatMsg = $state('') 

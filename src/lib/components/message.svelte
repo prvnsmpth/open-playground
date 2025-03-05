@@ -7,7 +7,7 @@
 	import { Button } from "$lib/components/ui/button/";
     import * as Accordion from '$lib/components/ui/accordion'
     import Tooltip from '$lib/components/basic-tooltip.svelte'
-    import { type ToolCall as OllamaToolCall } from "ollama";
+    import type { ToolCall as OllamaToolCall } from "ollama";
     import AutoTextarea from "./auto-textarea.svelte"
 
     interface Props {

@@ -8,7 +8,7 @@
     import AutoTextarea from '$lib/components/auto-textarea.svelte'
     import { cn } from '$lib/utils'
     import { toast } from 'svelte-sonner'
-    import { type Tool as OllamaTool } from 'ollama'
+    import type { Tool as OllamaTool } from 'ollama'
     import { isBuiltinTool } from '$lib'
 
     let { codeInterpreterEnabled } = $props()
