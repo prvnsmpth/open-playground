@@ -16,12 +16,10 @@ A playground that gives you full control over the contents of a chat conversatio
 3. Other things that I haven't thought of yet.
 
 You also get some nice-to-have features:
-1. A basic code interpreter implementation that can execute Python code
-2. The ability to freeze conversations and use them as few-shot examples to generate even more good conversations.
-3. Save and load preset model configs.
-
-Coming soon:
-1. Specify tools for function calling
+1. Support for specifying tools for function calling.
+2. A basic code interpreter implementation that can execute Python code.
+3. The ability to mark conversations as "golden" and use them as few-shot examples to generate even more good conversations - which can then be used to fine-tune (coming soon).
+4. Save and load preset model configs.
 
 ## Getting Started
 
