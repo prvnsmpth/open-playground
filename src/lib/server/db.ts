@@ -2,8 +2,9 @@ import { type Preset, type PresetConfig } from "$lib"
 import sqlite3 from "sqlite3"
 import { ulid } from "ulid"
 import logger from '$lib/server/logger'
-import type { Project, Chat, ChatMessage, Dataset } from "$lib"
+import type { Project, Chat, ChatMessage, Dataset, ChatMessageContent } from "$lib"
 import { DefaultProject, DefaultPreset } from "$lib"
+import { type ToolCall as OllamaToolCall } from "ollama"
 
 export enum EntityType {
     Project = 'p',
@@ -243,8 +244,7 @@ export class DbService {
         });
     }
 
-    async addMessage(chatId: string, role: string, content: string, model: string): Promise<string> {
-        const message = { role, content }
+    async addMessage(chatId: string, model: string, message: ChatMessageContent): Promise<string> {
         const messageSeqNum = await this.getNextMessageSeqNum(chatId)
         const messageId = IdGen.generate(EntityType.ChatMessage)
         return new Promise((resolve, reject) => {
@@ -274,9 +274,10 @@ export class DbService {
         });
     }
 
-    async updateMessage(chatId: string, messageId: string, content: string): Promise<void> {
+    async updateMessage(chatId: string, messageId: string, content: Partial<ChatMessageContent>): Promise<void> {
         const chatMessage = await this.getMessage(messageId)
-        const updatedMessage = { ...chatMessage.message, content }
+        const currMessageContent: ChatMessageContent = chatMessage.message
+        const updatedMessage = { ...currMessageContent, ...content }
         return new Promise((resolve, reject) => {
             this.db.run("UPDATE messages SET message = ? WHERE chat_id = ? AND id = ?", 
                 [JSON.stringify(updatedMessage), chatId, messageId], 

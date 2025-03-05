@@ -7,6 +7,7 @@
         value = $bindable(), 
         el = $bindable(), 
         onInput = () => {},
+        rows = 3,
         minRows = 3,
         maxRows = 7,
         ...rest 
@@ -32,7 +33,7 @@
 <textarea
     bind:this={el}
     bind:value
-    rows={3}
+    {rows}
     oninput={() => {
         onInput()
         autoResize()

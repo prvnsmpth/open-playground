@@ -7,11 +7,13 @@
     import { page } from '$app/state'
     import { presetStore } from '$lib/client/index.svelte';
     import { chatList } from '../index.svelte'
-	import type { StreamMessage } from '$lib';
+	import type { GenerationConfig, OutputFormat, SendMessageRequest, StreamMessage, Tool } from '$lib';
 	import type { ChatMessage, Usage } from '$lib';
     import * as Accordion from '$lib/components/ui/accordion'
     import AutoTextarea from '$lib/components/auto-textarea.svelte';
 	import { debounce } from '$lib/utils';
+    import { type Tool as OllamaTool, type ToolCall as OllamaToolCall } from 'ollama';
+    import { toast } from 'svelte-sonner';
 
     let chatMsg = $state('') 
     let chatMsgInput: HTMLTextAreaElement | undefined = $state()
@@ -23,7 +25,7 @@
         const pageState = page.state as any
         if (data.messages.length === 0 && pageState.message) {
             chatMsg = pageState.message
-            onSubmit()
+            onMessageSubmit()
         }
     })
 
@@ -64,7 +66,7 @@
         }
     }
 
-    function updateAsstResponse(response: string, asstMsgId?: string) {
+    function updateAsstResponse(response: string, asstMsgId?: string, toolCalls?: OllamaToolCall[]) {
         let targetMsg
         let targetMsgIdx
         if (asstMsgId) {
@@ -85,7 +87,8 @@
                         ...targetMsg, 
                         message: {
                             ...targetMsg.message, 
-                            content: response 
+                            content: response,
+                            toolCalls
                         } 
                     },
                     ...data.messages.slice(targetMsgIdx + 1)
@@ -101,7 +104,8 @@
                         messageSeqNum: data.messages.length + 1,
                         message: {
                             role: 'assistant',
-                            content: response
+                            content: response,
+                            toolCalls
                         }
                     }
                 ]
@@ -126,41 +130,37 @@
         }
     }
 
-    async function onSubmit() {
-        awaitingResponse = true
-        const model = preset.model
-        if (!model) {
-            console.error('No model selected')
-            return
+    async function sendMessage(
+        role: 'user' | 'tool',
+        content: string | null,
+        model: string,
+        genConfig: GenerationConfig,
+        tools?: Tool[],
+        outputFormat?: OutputFormat
+    ) {
+        const req: SendMessageRequest = {
+            role,
+            content,
+            model,
+            genConfig,
+            tools,
+            outputFormat
         }
 
-        chatMsg = chatMsg.trim()
-        const req = { 
-            message: chatMsg.length > 0 ? chatMsg : null, 
-            model,
-            modelConfig: {
-                temperature: preset.temperature,
-                maxTokens: preset.maxTokens,
-                topP: preset.topP,
-            },
-            tools: preset.tools,
-            outputFormat: preset.outputFormat
-        }
-        chatMsg = ''
-        if (req.message) {
+        if (content) {
             addMessage({
                 chatId: data.chat.id!,
                 messageSeqNum: data.messages.length + 1,
                 message: {
-                    role: 'user',
-                    content: req.message
+                    role,
+                    content
                 },
-                createdAt: Date.now()
             })
+            scrollToBottom()
         }
-        scrollToBottom()
 
         controller = new AbortController()
+        awaitingResponse = true
         const resp = await fetch(`/api/chat/${data.chat.id}/message`, {
             method: 'POST',
             headers: {
@@ -173,7 +173,8 @@
         if (!resp.ok) {
             console.error('Failed while receiving response:', resp)
             awaitingResponse = false
-            return
+            const err = await resp.json()
+            throw new Error(err.message)
         }
 
         const responseReader = resp.body?.getReader()
@@ -183,10 +184,15 @@
             return
         }
 
+        // The LLM's response
         let response = ''
+        let toolCalls: OllamaToolCall[] | undefined
         const lastMsg = data.messages[data.messages.length - 1]
         if (lastMsg.message.role === 'assistant') {
             response = lastMsg.message.content
+        }
+        if (lastMsg.message.toolCalls) {
+            toolCalls = lastMsg.message.toolCalls
         }
 
         let partialChunk = ''
@@ -231,17 +237,27 @@
                         updateLastMessageId(sm.content)
                         break
                     case 'asst_response':
-                        response += sm.content as string
+                        console.log('received', sm)
+                        response += sm.content.content as string
+                        if (sm.content.tool_calls) {
+                            if (!toolCalls) {
+                                toolCalls = []
+                            }
+                            toolCalls.push(...sm.content.tool_calls)
+                        }
                         break
                     case 'tool_exec_start':
                         awaitingToolResponse = true
                         break
-                    case 'tool':
+                    case 'tool_response':
                         awaitingToolResponse = false
                         if (response.length > 0) {
                             // Save any response accumulated from the assistant, then reset it 
-                            updateAsstResponse(response)
+                            // We do this because as part of one call to the LLM, we can get a stream of assistant text responses,
+                            // followed by tool calls/responses, followed by more text responses.
+                            updateAsstResponse(response, undefined, toolCalls)
                             response = ''
+                            toolCalls = []
                         }
                         addToolResponse(sm.content as string)
                         break
@@ -259,20 +275,45 @@
                             }
                         })
                         break
-                    default:
-                        console.error('Unexpected stream message type:', sm.type)
                 }
             }
 
-            if (response.length > 0) {
-                updateAsstResponse(response)
+            if (response.length > 0 || (toolCalls && toolCalls.length > 0)) {
+                updateAsstResponse(response, undefined, toolCalls)
             }
             scrollToBottom()
         }
     }
 
+    async function onMessageSubmit() {
+        if (!preset.model) {
+            console.error('No model selected')
+            return
+        }
+
+        const message = chatMsg.trim()
+        chatMsg = ''
+        try {
+            await sendMessage(
+                'user',
+                message.length > 0 ? message : null,
+                preset.model,
+                {
+                    temperature: preset.temperature,
+                    maxTokens: preset.maxTokens,
+                    topP: preset.topP,
+                },
+                preset.tools,
+                preset.outputFormat
+            )
+        } catch (err: any) {
+            console.error('Error sending message', err)
+            toast.error(err.message)
+        }
+    }
+
     let { data }: PageProps = $props()
-    let scrollAnchor: HTMLDivElement | undefined = $state()
+    let chatContainer: HTMLDivElement | undefined = $state()
 
     function onMessageDelete() {
         goto(`/chat/${data.chat.id}`, { invalidateAll: true })
@@ -280,12 +321,12 @@
 
     async function onMessageRegenerate(messageId: string) {
         if (!preset.model) {
-            console.error('No model selected')
+            toast.error('Please select a model')
             return
         }
 
         awaitingRegeneration = true
-        updateAsstResponse('Regenerating...', messageId)
+        updateAsstResponse('Regenerating...', messageId, [])
         const resp = await fetch(`/api/chat/${data.chat.id}/message/${messageId}`, {
             method: 'PUT',
             headers: {
@@ -315,7 +356,8 @@
         } 
 
         let partialChunk = ''
-        let response = ''
+        let responseTxt = ''
+        let toolCalls: OllamaToolCall[] | undefined
         const decoder = new TextDecoder()
         while (true) {
             let chunk: string
@@ -353,22 +395,57 @@
                 .filter(m => m !== null)
             
             for (const message of streamMessages) {
-                if (message.type === 'asst_response') {
-                    response += message.content
-                } else if (message.type === 'usage') {
-                    usage = message.content
-                } else {
-                    console.error('Unexpected message type', message)
+                switch (message.type) {
+                    case 'asst_response':
+                        responseTxt += message.content.content
+                        if (message.content.tool_calls) {
+                            if (!toolCalls) {
+                                toolCalls = []
+                            }
+                            toolCalls.push(...message.content.tool_calls)
+                        }
+                        break
+                    case 'usage':
+                        usage = message.content
+                        break
+                    default:
+                        console.error('Unexpected message type', message)
+                        break
                 }
             }
 
-            if (response.length > 0) {
-                updateAsstResponse(response, messageId)
+            if (responseTxt.length > 0 || toolCalls) {
+                updateAsstResponse(responseTxt, messageId, toolCalls)
             }
         }
     }
 
-    const scrollToBottom = () => setTimeout(() => scrollAnchor?.scrollIntoView({ behavior: 'smooth' }), 0)
+    async function onToolResponse(toolResponse: string) {
+        if (!preset.model) {
+            toast.error('Please select a model')
+            return
+        }
+
+        const resp = toolResponse.trim()
+        await sendMessage(
+            'tool',
+            resp.length > 0 ? resp : null,
+            preset.model,
+            {
+                temperature: preset.temperature,
+                maxTokens: preset.maxTokens,
+                topP: preset.topP,
+            },
+            preset.tools,
+            preset.outputFormat
+        )
+    }
+
+    const scrollToBottom = () => {
+        requestAnimationFrame(() => {
+            chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' })
+        })
+    }
 
     async function onStreamingStop() {
         controller?.abort()
@@ -389,7 +466,7 @@
 </script>
 
 <div class="flex-1 min-h-0 flex flex-col items-center">
-    <div class="flex-1 flex flex-col items-center py-8 w-full overflow-y-auto">
+    <div class="flex-1 flex flex-col items-center py-8 w-full overflow-y-auto" bind:this={chatContainer}>
         <div class="flex mb-8 border prose w-full max-w-screen-md rounded-lg p-4">
             <Accordion.Root type="single" class="w-full" value={data.chat.systemPrompt ? 'systemPrompt' : undefined}>
                 <Accordion.Item value="systemPrompt" class="border-none">
@@ -406,7 +483,7 @@
                 </Accordion.Item>
             </Accordion.Root>
         </div>
-        <div class="max-w-screen-md flex flex-col gap-2 pb-20 w-full">
+        <div class="max-w-screen-md flex flex-col gap-4 pb-20 w-full">
             {#each data.messages as message, idx}
                 <Message 
                     chatMessage={message} 
@@ -425,6 +502,29 @@
                     }} 
                     editable={false} />
             {/if}
+
+            <!-- 
+                If the last message is a tool call, show a message block allowing the 
+                user to provide the tool response.
+            -->
+            {#if data.messages.length > 0}
+                {@const lastMessage = data.messages[data.messages.length - 1]?.message}
+                {#if lastMessage?.role === 'assistant' && (lastMessage?.toolCalls?.length || 0) > 0}
+                    <Message 
+                        chatMessage={{ 
+                            chatId: data.chat.id!, 
+                            messageSeqNum: data.messages.length + 1,
+                            message: { role: 'tool', content: '', }, 
+                            createdAt: Date.now() 
+                        }} 
+                        {onToolResponse}
+                        editable={true} 
+                        initEditMode={true}
+                    />
+                {/if}
+            {/if}
+
+            <!-- For built-in tools, currently only code interpreter -->
             {#if awaitingToolResponse}
                <Message
                     chatMessage={{ 
@@ -438,7 +538,6 @@
                     }}
                     editable={false} />
             {/if}
-            <div bind:this={scrollAnchor}></div>
         </div>
     </div>
     <div class="flex flex-col gap-1 self-stretch relative">
@@ -452,7 +551,7 @@
         {/if}
         <div class="flex justify-center">
             <MessageInput bind:chatMsg bind:chatMsgInput 
-                {onSubmit} 
+                onSubmit={onMessageSubmit} 
                 disabled={data.chat.golden} 
                 receivingResponse={streamingResponse} 
                 onStop={onStreamingStop}

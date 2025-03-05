@@ -7,9 +7,10 @@
     import * as Table from '$lib/components/ui/table';
     import CircularLoader from '$lib/components/circular-loader.svelte';
     import { Plus, Pencil, Trash2 } from 'lucide-svelte';
-    import type { Project } from '$lib';
+    import { DefaultProject, type Project } from '$lib';
     import { goto, invalidateAll } from '$app/navigation';
     import { selectedProject } from '$lib/client/index.svelte';
+    import { cn } from '$lib/utils.js'
 
     let { data } = $props();
     
@@ -122,7 +123,7 @@
     }
 
     async function deleteProject() {
-        if (!selectedProjectId) {
+        if (!selectedProjectId || selectedProjectId === DefaultProject.id) {
             return;
         }
 
@@ -142,12 +143,12 @@
                 projects: data.projects.filter(p => p.id !== selectedProjectId)
             }
             
-            // // If this is the currently selected project, switch to default
-            // if (selectedProject.value.id === selectedProjectId) {
-            //     // Find the first available project or use default
-            //     const firstProject = projects[0] || { id: 'p_default', name: 'Default Project', createdAt: Date.now() };
-            //     selectedProject.value = firstProject;
-            // }
+            // If this is the currently selected project, switch to default
+            if (selectedProject.value.id === selectedProjectId) {
+                // Find the first available project or use default
+                const firstProject = data.projects[0] || DefaultProject
+                selectedProject.value = firstProject;
+            }
             
             // Refresh the projects list
             invalidateAll();
@@ -216,16 +217,21 @@
                             <Table.Cell class="py-2">{new Date(project.createdAt).toLocaleDateString()}</Table.Cell>
                             <Table.Cell class="py-2 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <Button variant="ghost" size="icon" onclick={(e) => {
-                                        e.stopPropagation();
-                                        openEditDialog(project);
-                                    }} title="Edit project">
+                                    <Button variant="ghost" size="icon" 
+                                        disabled={project.id === DefaultProject.id}
+                                        onclick={(e) => {
+                                            e.stopPropagation();
+                                            openEditDialog(project);
+                                        }} title="Edit project">
                                         <Pencil class="w-4 h-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" onclick={(e) => {
-                                        e.stopPropagation();
-                                        openDeleteDialog(project);
-                                    }} title="Delete project">
+                                    <Button variant="ghost" size="icon" 
+                                        disabled={project.id === DefaultProject.id}
+                                        onclick={(e) => {
+                                            e.stopPropagation();
+                                            openDeleteDialog(project);
+                                        }} 
+                                        title="Delete project">
                                         <Trash2 class="w-4 h-4" />
                                     </Button>
                                 </div>
@@ -303,7 +309,7 @@
         <Dialog.Header>
             <Dialog.Title>Delete Project</Dialog.Title>
             <Dialog.Description>
-                Are you sure you want to delete this project? This action cannot be undone and will delete all chats associated with this project.
+                Are you sure you want to delete this project? This action cannot be undone and will delete all data associated with this project.
             </Dialog.Description>
         </Dialog.Header>
         <div class="flex flex-col gap-3">

@@ -16,9 +16,9 @@
             <a href="/chat" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/chat') && 'text-foreground')}>
                 Chat
             </a>
-            <a href="/datasets" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/datasets') && 'text-foreground')}>
+            <!-- <a href="/datasets" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/datasets') && 'text-foreground')}>
                 Datasets
-            </a>
+            </a> -->
             <a href="/projects" class={cn("text-sm text-muted-foreground hover:text-foreground transition-colors", currPath.startsWith('/projects') && 'text-foreground')}>
                 Projects
             </a>

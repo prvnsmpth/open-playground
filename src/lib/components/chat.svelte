@@ -11,7 +11,7 @@
         chat: Chat,
         onRenameChat: (chatId: string, chatTitle: string) => void
         onDeleteChat: (chatId: string) => void
-        onToggleGolden: (chatId: string, golden: boolean) => void
+        onToggleGolden: (chatId: string, frozen: boolean) => void
     }
 
     let { chat, onRenameChat, onDeleteChat, onToggleGolden }: Props = $props()
@@ -33,7 +33,7 @@
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({ 
-                golden: !chat.golden 
+                frozen: !chat.golden 
             })
 		})
 
@@ -71,9 +71,9 @@
 
 <div class={cn("group flex items-center m-2 hover:bg-gray-200/70 rounded-lg transition-colors", page.params.chatId === chat.id && 'bg-gray-200')}>
     <a href={`/chat/${chat.id}`} class="flex-1 py-3 pl-3 flex gap-2 items-center overflow-hidden whitespace-nowrap text-ellipsis">
-        <div class={cn("text-sm overflow-hidden text-ellipsis", chat.golden ? "text-amber-500" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
+        <div class={cn("text-sm overflow-hidden text-ellipsis", chat.golden ? "text-amber-600" : "text-foreground")}>{chat.title ?? "Untitled chat"}</div>	
         {#if chat.golden}
-            <CircleCheckBig class="w-3 h-3 text-amber-500" />
+            <CircleCheckBig class="w-3 h-3 text-amber-600" />
         {/if}
         <!-- <div class="text-xs">{formatTime(chat.createdAt, "MMMM dd, yyyy HH:mm:ss")}</div> -->
     </a>

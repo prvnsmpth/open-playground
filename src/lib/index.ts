@@ -1,13 +1,22 @@
 // place files you want to import through the `$lib` alias in this folder.
+import { type Tool as OllamaTool, type Message as OllamaMessage, type ToolCall as OllamaToolCall } from "ollama"
 
 // A message sent from the server to the client in a stream
 export type StreamMessage = {
-    type: 'user_msg_id' | 'asst_response' | 'asst_msg_id' | 'chat_title' | 'tool' | 'tool_msg_id' | 'tool_exec_start' | 'usage',
+    type: 'user_msg_id' | 'asst_msg_id' | 'chat_title' | 'tool_response' | 'tool_msg_id' | 'tool_exec_start' | 'usage',
     content: any
+} | {
+    type: 'asst_response',
+    content: OllamaMessage
 }
 
-export enum Tool {
+export enum BuiltinTool {
     CodeInterpreter = 'code_interpreter',
+}
+
+export type Tool = BuiltinTool | OllamaTool
+export function isBuiltinTool(tool: Tool): tool is BuiltinTool {
+    return Object.values(BuiltinTool).includes(tool as BuiltinTool)
 }
 
 export type OutputFormat = {
@@ -25,6 +34,12 @@ export type PresetConfig = {
     maxTokens?: number,
     topP?: number,
     tools?: Tool[],
+}
+
+export type GenerationConfig = {
+    temperature?: number,
+    maxTokens?: number,
+    topP?: number,
 }
 
 export type Preset = {
@@ -59,8 +74,9 @@ export type ChatMessage = {
 }
 
 export type ChatMessageContent = {
-    role: string;
+    role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
+    toolCalls?: OllamaToolCall[]
 }
 
 export type Usage = {
@@ -84,7 +100,7 @@ export const DefaultPreset: Preset = {
         temperature: 0.7,
         maxTokens: 2048,
         topP: 1,
-        tools: [Tool.CodeInterpreter],
+        tools: [BuiltinTool.CodeInterpreter],
     },
     createdAt: Date.now(),
 }
@@ -93,4 +109,15 @@ export const DefaultProject: Project = {
     id: 'p_default',
     name: 'Default Project',
     createdAt: Date.now(),
+}
+
+export type SendMessageRequest = {
+    role: 'user' | 'tool' // Either the user sends a text message, or provides a tool response
+    // TODO: we send content = null to simply run the current thread. 
+    // Ideally, would be nice to have a separate request type that simply runs the current thread
+    content: string | null 
+    model: string
+    genConfig: GenerationConfig
+    tools?: Tool[]
+    outputFormat?: OutputFormat
 }

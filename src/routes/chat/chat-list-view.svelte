@@ -13,7 +13,7 @@
     import * as Dialog from '$lib/components/ui/dialog'
     import CircularLoader from '$lib/components/circular-loader.svelte';
     import { onMount } from 'svelte'
-    import { invalidateAll } from '$app/navigation'
+    import { goto, invalidateAll } from '$app/navigation'
 
     type Props = {
         projects: Project[],
@@ -73,6 +73,8 @@
         projectSelectOpen = false
         selectedProject.value = newProject
         await fetchChats(id)
+
+        goto(`/chat`, { invalidateAll: true })
     }
 
     async function onProjectSelect(id: string) {

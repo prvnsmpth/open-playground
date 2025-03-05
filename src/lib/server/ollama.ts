@@ -1,8 +1,8 @@
-import { Ollama, type ModelResponse } from "ollama"
+import { Ollama, type ModelResponse, type Tool as OllamaTool, type ToolCall as OllamaToolCall } from "ollama"
 import { connect, DbService } from "./db"
-import type { ChatMessage, OutputFormat, Usage } from '$lib'
+import type { ChatMessage, OutputFormat, Tool, Usage } from '$lib'
 import { execSync } from "child_process"
-import { Tool, type StreamMessage } from "$lib"
+import { BuiltinTool, isBuiltinTool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
 import { env } from '$env/dynamic/private'
 import logger from '$lib/server/logger'
@@ -90,6 +90,7 @@ class OllamaClient {
         }
     }
 
+    // TODO: large portions of this are duplicated from sendMessage
     async regenerateResponse(chatId: string, messageId: string, model: string, modelConfig: any, tools: Tool[] = []) {
         await this.ensureModel(model)
 
@@ -119,6 +120,7 @@ class OllamaClient {
                     .map(cm => cm.message)
                     .slice(0, targetMsgIdx))
             ],
+            tools: tools.filter(t => !isBuiltinTool(t)) as OllamaTool[],
             stream: true,
             options: {
                 num_ctx: this.CTX_LEN,
@@ -129,6 +131,7 @@ class OllamaClient {
         })
 
         let responseTxt = ''
+        let toolCalls: OllamaToolCall[] | undefined
         const db = this.db
         const encoder = new TextEncoder()
 
@@ -143,6 +146,12 @@ class OllamaClient {
                 try {
                     for await (const chunk of resp) {
                         responseTxt += chunk.message.content
+                        if (chunk.message.tool_calls) {
+                            if (!toolCalls) {
+                                toolCalls = []
+                            }
+                            toolCalls.push(...chunk.message.tool_calls)
+                        }
                         if (chunk.done) {
                             const usage = {
                                 promptTokens: chunk.prompt_eval_count,
@@ -150,13 +159,13 @@ class OllamaClient {
                             }
                             sendJson({ type: 'usage', content: usage }) 
                         }
-                        sendJson({ type: 'asst_response', content: chunk.message.content || '' })
+                        sendJson({ type: 'asst_response', content: chunk.message })
                     }
                 } catch (err) {
                     console.error('Error reading response:', err)
                 } finally {
-                    if (responseTxt.length > 0) {
-                        await db.updateMessage(chat.id!, targetMsg.id!, responseTxt)
+                    if (responseTxt.length > 0 || (toolCalls?.length || 0) > 0) {
+                        await db.updateMessage(chat.id!, targetMsg.id!, { content: responseTxt, toolCalls })
                     }
                     controller.close()
                 }
@@ -185,9 +194,17 @@ class OllamaClient {
         throw new Error(`Invalid output format: ${outputFormat?.type}`)
     }
 
-    async sendMessage(chatId: string, msg: string | null, model: string, modelConfig: any, tools: Tool[] = [], outputFormat?: OutputFormat) {
+    async sendMessage(
+        chatId: string, 
+        role: 'user' | 'tool',
+        msg: string | null, 
+        model: string, 
+        modelConfig: any, 
+        tools: Tool[] = [], 
+        outputFormat?: OutputFormat
+    ) {
         await this.ensureModel(model)
-        const id = msg ? await this.db.addMessage(chatId, 'user', msg, model) : null
+        const id = msg ? await this.db.addMessage(chatId, model, { role, content: msg }) : null
         const chat = await this.db.getChat(chatId)
         if (!chat) {
             throw new Error('Chat not found')
@@ -195,12 +212,43 @@ class OllamaClient {
 
         const messages = await this.db.getMessages(chatId)
         const systemPrompt = chat.systemPrompt ?? ''
+        logger.info({ message: 'ollama req', req: {
+            model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages.map(cm => {
+                    const toolCalls = cm.message.toolCalls
+                    return {
+                        ...cm.message,
+                        toolCalls: undefined,
+                        tool_calls: toolCalls
+                    }
+                })
+            ],
+            tools: tools.filter(t => !isBuiltinTool(t)) as OllamaTool[],
+            stream: true,
+            format: this.getOutputFormat(outputFormat),
+            options: {
+                num_ctx: this.CTX_LEN,
+                temperature: modelConfig.temperature,
+                num_predict: modelConfig.maxTokens,
+                top_p: modelConfig.topP
+            }
+        }})
         const resp = await this.client.chat({
             model,
             messages: [
                 { role: 'system', content: systemPrompt },
-                ...messages.map(cm => cm.message)
+                ...messages.map(cm => {
+                    const toolCalls = cm.message.toolCalls
+                    return {
+                        ...cm.message,
+                        toolCalls: undefined,
+                        tool_calls: toolCalls
+                    }
+                })
             ],
+            tools: tools.filter(t => !isBuiltinTool(t)) as OllamaTool[],
             stream: true,
             format: this.getOutputFormat(outputFormat),
             options: {
@@ -234,8 +282,8 @@ class OllamaClient {
                 if (codeOutput === null) {
                     break
                 }
-                const toolOutputId = await this.db.addMessage(chatId, 'tool', codeOutput, model)
-                sendJson(controller, { type: 'tool', content: codeOutput })
+                const toolOutputId = await this.db.addMessage(chatId, model, { role: 'tool', content: codeOutput })
+                sendJson(controller, { type: 'tool_response', content: codeOutput })
                 sendJson(controller, { type: 'tool_msg_id', content: toolOutputId })
 
                 const messages = await this.db.getMessages(chatId)
@@ -254,7 +302,7 @@ class OllamaClient {
                 currResp = ''
                 for await (const chunk of resp) {
                     currResp += chunk.message.content
-                    sendJson(controller, { type: 'asst_response', content: chunk.message.content })
+                    sendJson(controller, { type: 'asst_response', content: chunk.message })
                     if (chunk.done) {
                         const usage: Usage = {
                             promptTokens: chunk.prompt_eval_count,
@@ -264,7 +312,7 @@ class OllamaClient {
                     }
                 }
 
-                const asstRespId = await this.db.addMessage(chatId, 'assistant', currResp, model)
+                const asstRespId = await this.db.addMessage(chatId, model, { role: 'assistant', content: currResp })
                 sendJson(controller, { type: 'asst_msg_id', content: asstRespId })
                 numIters++
             }
@@ -275,6 +323,11 @@ class OllamaClient {
         if (lastMsg?.message.role === 'assistant') {
             // We are continuing the last assistant message
             responseTxt = lastMsg.message.content
+        }
+
+        let toolCalls: OllamaToolCall[] | undefined
+        if (lastMsg?.message.toolCalls) {
+            toolCalls = lastMsg.message.toolCalls
         }
 
         const encoder = new TextEncoder()
@@ -290,6 +343,14 @@ class OllamaClient {
                     }
                     for await (const chunk of resp) {
                         responseTxt += chunk.message.content
+                        logger.info({ message: 'response chunk', chunk: chunk.message })
+                        if (chunk.message.tool_calls) {
+                            if (!toolCalls) {
+                                toolCalls = []
+                            }
+                            toolCalls.push(...chunk.message.tool_calls)
+                        }
+
                         if (chunk.done) {
                             const usage: Usage = {
                                 promptTokens: chunk.prompt_eval_count,
@@ -297,7 +358,7 @@ class OllamaClient {
                             }
                             sendJson(controller, { type: 'usage', content: usage })
                         }
-                        sendJson(controller, { type: 'asst_response', content: chunk.message.content })
+                        sendJson(controller, { type: 'asst_response', content: chunk.message })
 
                         // Send message ID right after the first chunk
                         if (!asstIdSent) {
@@ -305,7 +366,7 @@ class OllamaClient {
                             if (lastMsg?.message.role === 'assistant') {
                                 asstMsgId = lastMsg.id!
                             } else {
-                                asstMsgId = await db.addMessage(chatId, 'assistant', responseTxt, model)
+                                asstMsgId = await db.addMessage(chatId, model, { role: 'assistant', content: responseTxt, toolCalls })
                             }
                             sendJson(controller, { type: 'asst_msg_id', content: asstMsgId })
                             asstIdSent = true
@@ -322,12 +383,12 @@ class OllamaClient {
                     const lastMsg = finalMessages[finalMessages.length - 1]
                     if (responseTxt.length > 0) {
                         if (lastMsg?.message.role === 'assistant') {
-                            await db.updateMessage(chatId, lastMsg.id!, responseTxt)
+                            await db.updateMessage(chatId, lastMsg.id!, { content: responseTxt, toolCalls })
                         } else {
-                            await db.addMessage(chatId, 'assistant', responseTxt, model)
+                            await db.addMessage(chatId, model, { role: 'assistant', content: responseTxt, toolCalls })
                         }
 
-                        const codeInterpreterEnabled = tools.includes(Tool.CodeInterpreter)
+                        const codeInterpreterEnabled = tools.includes(BuiltinTool.CodeInterpreter)
                         if (codeInterpreterEnabled) {
                             try {
                                 await runEvalLoop(controller, responseTxt)

@@ -1,14 +1,14 @@
 import * as fs from 'node:fs/promises'
 import util from 'node:util'
 import child_process from 'node:child_process'
-import { type Tool } from '.'
+import { type ToolCallHandler } from '.'
 import { env } from '$env/dynamic/private'
 import logger from '$lib/server/logger'
 
 const exec = util.promisify(child_process.exec)
 
 // Checks if LLM response contains any code blocks, and if found, executes them and returns the result
-export class CodeInterpreter implements Tool {
+export class CodeInterpreter implements ToolCallHandler {
     private baseScript: string = ''
 
     constructor() {

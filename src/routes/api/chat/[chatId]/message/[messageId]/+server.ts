@@ -19,7 +19,7 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
         }
     } else {
         try {
-            await db.updateMessage(chatId, messageId, content) 
+            await db.updateMessage(chatId, messageId, { content }) 
             return new Response("OK", { status: 200 })
         } catch (err) {
             console.error('Failed to update message', err)

@@ -30,7 +30,7 @@ export const POST: RequestHandler = async ({ request, locals })  => {
         await db.updateChat(newChatId, { title: `Copy of ${chat.title}` })
         const messages = await db.getMessages(req.chatId)
         for (const m of messages) {
-            await db.addMessage(newChatId, m.message.role, m.message.content, m.model!)
+            await db.addMessage(newChatId, m.model!, { role: m.message.role, content: m.message.content })
         }
     } else {
         newChatId = await db.createChat(req.projectId, req.systemPrompt)

@@ -55,7 +55,7 @@
     }
 </script>
 
-<div class="prose">
+<div class="flex flex-col gap-2">
     <p class="uppercase font-bold text-xs">Output format</p>
     <div class="flex flex-col gap-1">
         <div class="flex flex-col">

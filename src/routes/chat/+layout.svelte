@@ -1,12 +1,11 @@
 <script lang="ts">
     import { invalidateAll } from '$app/navigation'
-    import { DefaultPreset, Tool, type Preset } from '$lib'
+    import { DefaultPreset, BuiltinTool, type Preset } from '$lib'
     import { presetStore } from '$lib/client/index.svelte'
     import Tooltip from '$lib/components/basic-tooltip.svelte'
     import CircularLoader from '$lib/components/circular-loader.svelte'
     import Combobox from '$lib/components/combobox.svelte'
     import Button from '$lib/components/ui/button/button.svelte'
-    import { Checkbox } from '$lib/components/ui/checkbox'
     import * as Dialog from '$lib/components/ui/dialog'
     import { Input } from '$lib/components/ui/input'
     import { Label } from '$lib/components/ui/label'
@@ -19,6 +18,7 @@
     import { toast } from "svelte-sonner"
     import ChatListView from './chat-list-view.svelte'
     import OutputFormatComponent from './output-format.svelte'
+    import ToolManager from './tool-manager.svelte'
 
     let { data, children } = $props();
 
@@ -51,23 +51,25 @@
 
     let codeInterpreterEnabled = {
         get value() {
-            return preset.tools?.includes(Tool.CodeInterpreter) ?? false
+            return preset.tools?.includes(BuiltinTool.CodeInterpreter) ?? false
         },
         set value(value: boolean) {
             if (!preset.tools) {
                 preset.tools = []
             }
             if (value) {
-                preset.tools.push(Tool.CodeInterpreter)
+                preset.tools.push(BuiltinTool.CodeInterpreter)
             } else {
-                preset.tools = preset.tools.filter((tool) => tool !== Tool.CodeInterpreter)
+                preset.tools = preset.tools.filter((tool) => tool !== BuiltinTool.CodeInterpreter)
             }
         }
     }
 
     let savePresetDialogOpen = $state(false)
     let presetName = $state('')
-    async function savePreset() {
+    async function savePreset(e: SubmitEvent) {
+        e.preventDefault()
+
         if (!presetName) {
             return
         }
@@ -278,7 +280,7 @@
             </Select.Root>
         </div>
         <div class="flex-1 flex flex-col gap-12 min-h-0 overflow-y-auto p-6">
-            <div class="prose">
+            <div class="flex flex-col gap-2">
                 <p class="uppercase font-bold text-xs">Model</p>
                 <div class="flex flex-col gap-1">
                     <div class="flex items-top gap-1.5">
@@ -295,22 +297,9 @@
 
             <OutputFormatComponent />
 
-            <div class="prose">
-                <p class="uppercase font-bold text-xs">Tools</p>
-                <div class="flex flex-col gap-1">
-                    <div class="flex items-top gap-1.5">
-                        <Checkbox id="code-interpreter" bind:checked={codeInterpreterEnabled.value} />
-                        <div class="flex flex-col gap-1.5">
-                            <Label for="code-interpreter" class="flex flex-col gap-1">
-                                Code Interpreter
-                            </Label>
-                            <p class="text-xs text-muted-foreground m-0">Execute any generated Python code</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <ToolManager {codeInterpreterEnabled} />
 
-            <div class="prose">
+            <div class="flex flex-col gap-2">
                 <p class="uppercase font-bold text-xs">Model Config</p>
                 <div class="flex flex-col gap-8">
                     <div class="flex flex-col gap-1">
@@ -354,13 +343,15 @@
         <Dialog.Header>
             <Dialog.Title>Save preset</Dialog.Title>
         </Dialog.Header>
-        <Input type="text" 
-            bind:value={presetName} 
-            placeholder="Enter preset name..." />
-        <Dialog.Footer>
-            <Button variant="outline" onclick={() => savePresetDialogOpen = false}>Cancel</Button>
-            <Button type="submit" onclick={savePreset}>Save</Button>
-        </Dialog.Footer>
+        <form class="flex flex-col gap-4" onsubmit={savePreset}>
+            <Input type="text" 
+                bind:value={presetName} 
+                placeholder="Enter preset name..." />
+            <Dialog.Footer>
+                <Button variant="outline" onclick={() => savePresetDialogOpen = false}>Cancel</Button>
+                <Button type="submit">Save</Button>
+            </Dialog.Footer>
+        </form>
     </Dialog.Content>
 </Dialog.Root>
 

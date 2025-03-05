@@ -1,3 +1,4 @@
+import type { SendMessageRequest } from "$lib";
 import { error, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ params, request, locals })  => {
@@ -6,20 +7,28 @@ export const POST: RequestHandler = async ({ params, request, locals })  => {
         throw error(400, 'Invalid chatId')
     }
 
-    const { message, model, modelConfig, tools, outputFormat } = await request.json()
+    const { 
+        role = 'user', 
+        content, 
+        model, 
+        genConfig, 
+        tools, 
+        outputFormat 
+    }: SendMessageRequest = await request.json()
 
     try {
         const stream = 
             await locals.ollama.sendMessage(
                 chatId, 
-                message, 
+                role,
+                content, 
                 model, 
-                modelConfig, 
+                genConfig, 
                 tools, 
                 outputFormat)
         return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })
-    } catch (err) {
+    } catch (err: any) {
         console.error('Error sending message', err)
-        throw error(500, 'Error sending message')
+        throw error(400, err.message)
     }
 }

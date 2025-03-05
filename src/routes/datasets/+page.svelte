@@ -75,6 +75,10 @@
     </Select.Root>
 {/snippet}
 
+<div class="bg-yellow-200 p-1 text-center text-yellow-800 border-b border-yellow-300 text-xs font-semibold">
+    This page is a work in progress. You will be able to create datasets to fine-tune models here.
+</div>
+
 <div class="container mx-auto py-16 px-4">
     <div class="flex justify-between items-center mb-2">
         <div class="flex flex-col gap-1">
