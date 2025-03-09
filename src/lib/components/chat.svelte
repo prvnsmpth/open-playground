@@ -33,7 +33,7 @@
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({ 
-                frozen: !chat.golden 
+                golden: !chat.golden 
             })
 		})
 

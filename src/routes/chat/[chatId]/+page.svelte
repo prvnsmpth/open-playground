@@ -442,9 +442,7 @@
     }
 
     const scrollToBottom = () => {
-        requestAnimationFrame(() => {
-            chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' })
-        })
+        setTimeout(() => chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' }), 0)
     }
 
     async function onStreamingStop() {
