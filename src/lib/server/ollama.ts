@@ -1,6 +1,6 @@
-import { Ollama, type ModelResponse, type Tool as OllamaTool, type ToolCall as OllamaToolCall } from "ollama"
+import { Ollama, type ChatRequest, type ModelResponse, type Tool as OllamaTool, type ToolCall as OllamaToolCall } from "ollama"
 import { connect, DbService } from "./db"
-import type { ChatMessage, OutputFormat, Tool, Usage } from '$lib'
+import type { Chat, ChatMessage, OutputFormat, Tool, Usage } from '$lib'
 import { execSync } from "child_process"
 import { BuiltinTool, isBuiltinTool, type StreamMessage } from "$lib"
 import { CodeInterpreter } from "./tools"
@@ -19,6 +19,7 @@ class OllamaClient {
     private client: Ollama
     private db: DbService
     private codeInterpreter: CodeInterpreter
+    private includeFewShotExamples: boolean = false
 
     private CTX_LEN = 32_000 // TODO: This should be updated when models are changed
 
@@ -194,6 +195,23 @@ class OllamaClient {
         throw new Error(`Invalid output format: ${outputFormat?.type}`)
     }
 
+    private async buildSystemPrompt(chat: Chat) {
+        logger.info('Building system prompt for chat: ' + chat.id)
+        const baseSystemPrompt = chat.systemPrompt
+        if (!this.includeFewShotExamples) {
+            return baseSystemPrompt
+        }
+
+        const recentGoldenChats = await this.db.listChats(chat.projectId, true, 0, 5)
+        const fewShotExamples = recentGoldenChats.map(async c => {
+            const messages = await this.db.getMessages(c.id!)
+            return messages.map(m => `${m.message.role}: ${m.message.content}`).join('\n')
+        })
+        const examples = (await Promise.all(fewShotExamples)).map((e, i) => `Example chat #${i + 1}:\n${e}`).join('\n\n')
+
+        return `${baseSystemPrompt}\n\nExamples of good agent responses:\n\n${examples}\n\n`
+    }
+
     async sendMessage(
         chatId: string, 
         role: 'user' | 'tool',
@@ -211,8 +229,8 @@ class OllamaClient {
         }
 
         const messages = await this.db.getMessages(chatId)
-        const systemPrompt = chat.systemPrompt ?? ''
-        logger.info({ message: 'ollama req', req: {
+        const systemPrompt = (await this.buildSystemPrompt(chat)) || ''
+        const ollamaReq: ChatRequest = {
             model,
             messages: [
                 { role: 'system', content: systemPrompt },
@@ -226,7 +244,6 @@ class OllamaClient {
                 })
             ],
             tools: tools.filter(t => !isBuiltinTool(t)) as OllamaTool[],
-            stream: true,
             format: this.getOutputFormat(outputFormat),
             options: {
                 num_ctx: this.CTX_LEN,
@@ -234,29 +251,11 @@ class OllamaClient {
                 num_predict: modelConfig.maxTokens,
                 top_p: modelConfig.topP
             }
-        }})
+        }
+        logger.info({ message: 'ollama req', req: ollamaReq})
         const resp = await this.client.chat({
-            model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                ...messages.map(cm => {
-                    const toolCalls = cm.message.toolCalls
-                    return {
-                        ...cm.message,
-                        toolCalls: undefined,
-                        tool_calls: toolCalls
-                    }
-                })
-            ],
-            tools: tools.filter(t => !isBuiltinTool(t)) as OllamaTool[],
-            stream: true,
-            format: this.getOutputFormat(outputFormat),
-            options: {
-                num_ctx: this.CTX_LEN,
-                temperature: modelConfig.temperature,
-                num_predict: modelConfig.maxTokens,
-                top_p: modelConfig.topP
-            }
+            ...ollamaReq,
+            stream: true
         })
 
         function sendJson(controller: ReadableStreamDefaultController<any>, json: StreamMessage) {

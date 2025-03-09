@@ -170,10 +170,21 @@ export class DbService {
     }
 
     async listChats(projectId: string, golden?: boolean, offset: number = 0, limit: number = 50): Promise<Chat[]> {
-        const whereClause = golden !== undefined ? "WHERE golden = ?" : "";
-        const params = golden !== undefined ? [projectId, golden, limit, offset] : [projectId, limit, offset];
+        const whereClauses = ["project_id = ?"]
+        const params: any[] = [projectId]
+
+        if (golden !== undefined) {
+            whereClauses.push("golden = ?")
+            params.push(golden)
+        }
+        params.push(limit)
+        params.push(offset)
+
+        const query = `SELECT * FROM chats WHERE ${whereClauses.join(' AND ')} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+        logger.info({ message: 'Listing chats query', query, params })
+
         return new Promise((resolve, reject) => {
-            this.db.all(`SELECT * FROM chats ${whereClause} WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, params, (err, rows) => {
+            this.db.all(query, params, (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
