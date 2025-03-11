@@ -144,6 +144,11 @@
         await fetchChats(selectedProject.value.id)
         invalidateAll()
     }
+
+    async function onCloneChat(chatId: string) {
+        await fetchChats(selectedProject.value.id)
+        invalidateAll()
+    }
 </script>
 
 <div class="flex w-full justify-center items-center p-2 h-14 border-b">
@@ -184,7 +189,7 @@
         </div>
     {:else}
         {#each chatList.value as chat}
-            <ChatComponent {chat} {onRenameChat} {onDeleteChat} onToggleGolden={onToggleGolden} />
+            <ChatComponent {chat} {onRenameChat} {onDeleteChat} {onToggleGolden} {onCloneChat} />
         {:else}
             <div class="h-full flex justify-center pt-8">
                 <p class="text-muted-foreground text-xs uppercase text-center font-bold">

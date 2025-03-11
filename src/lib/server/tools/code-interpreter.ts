@@ -44,7 +44,14 @@ export class CodeInterpreter implements ToolCallHandler {
             return stdout
         } catch (err: any) {
             console.error('Error executing script:', err)
-            return [err.stdout, err.stderr].join('\n')
+            let output = []
+            if (err.stdout) {
+                output.push(err.stdout)
+            }
+            if (err.stderr) {
+                output.push(err.stderr)
+            }
+            return output.join('\n')
         }
     }
 

@@ -10,11 +10,12 @@
     type Props = {
         chat: Chat,
         onRenameChat: (chatId: string, chatTitle: string) => void
+        onCloneChat: (chatId: string) => void
         onDeleteChat: (chatId: string) => void
         onToggleGolden: (chatId: string, frozen: boolean) => void
     }
 
-    let { chat, onRenameChat, onDeleteChat, onToggleGolden }: Props = $props()
+    let { chat, onRenameChat, onDeleteChat, onToggleGolden, onCloneChat }: Props = $props()
 
 	async function deleteChat() {
 		const resp = await fetch(`/api/chat/${chat.id}`, {
@@ -64,6 +65,7 @@
         const { chatId: newChatId } = await resp.json()
         goto(`/chat/${newChatId}`, { invalidateAll: true })
         dropdownOpen = false
+        onCloneChat(chatId)
     }
 
     let dropdownOpen = $state(false)

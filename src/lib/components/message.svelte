@@ -27,7 +27,9 @@
     const toolCalls = $derived(chatMessage.message.toolCalls)
 
     const handleInput: FormEventHandler<HTMLDivElement> = debounce((e: Event) => {
+        console.log('handleInput')
         const target = e.target as HTMLElement;
+        console.log('target', target)
         const firstChild = target.childNodes[0]
         let textContent = ''
         if (firstChild.nodeName === 'PRE') {
@@ -38,10 +40,11 @@
                     textContent += node.textContent
                 }
             }
-        } else if (firstChild.nodeType === Node.TEXT_NODE) {
-            textContent = firstChild.textContent || ''
+        } else {
+            textContent = target.textContent || ''
         }
 
+        console.log('setting edited content', textContent)
         editedContent = textContent
     }, 100)
 
@@ -139,9 +142,14 @@
                 </Tooltip>
             </div>
         {/if}
-        <div class={cn("p-4 rounded-xl self-end bg-gray-100 flex flex-col gap-1", editMode ? "w-full" : "max-w-lg")} oninput={handleInput}>
-            <div contenteditable={editMode} class="outline-none">{chatMessage.message.content}</div>
+        <div class={cn("p-4 rounded-xl self-end bg-gray-100 flex flex-col gap-1", editMode ? "w-full" : "max-w-lg")}>
             {#if editMode}
+                <!-- <div contenteditable={editMode} class="outline-none">{chatMessage.message.content}</div> -->
+                <AutoTextarea 
+                    placeholder="Tool response..."
+                    class="bg-muted resize-none p-2 px-4 rounded-lg w-full outline-none"
+                    rows={3} minRows={3}
+                    bind:value={editedContent} />
                 <div class="flex gap-2 justify-end">
                     <Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
                     <Button size="sm" onclick={saveEdit} disabled={saving}>
@@ -152,6 +160,8 @@
                         {/if}
                     </Button>
                 </div>
+            {:else}
+                <SvelteMarkdown source={chatMessage.message.content} />
             {/if}
         </div>
     </div>
@@ -166,7 +176,7 @@
                     <div contenteditable="true" oninput={handleInput}>
                         <pre class="whitespace-pre-wrap my-0">{chatMessage.message.content}</pre>
                     </div>
-                    <div class="flex gap-2 justify-end">
+                    <div class="flex gap-2 justify-end mt-1">
                         <Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
                         <Button size="sm" onclick={saveEdit} disabled={saving}>
                             {#if saving}
