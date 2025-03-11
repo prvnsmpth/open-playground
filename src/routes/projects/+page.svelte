@@ -6,10 +6,11 @@
     import * as Dialog from '$lib/components/ui/dialog';
     import * as Table from '$lib/components/ui/table';
     import CircularLoader from '$lib/components/circular-loader.svelte';
-    import { Plus, Pencil, Trash2 } from 'lucide-svelte';
+    import { Plus, Pencil, Trash2, Download } from 'lucide-svelte';
     import { DefaultProject, type Project } from '$lib';
     import { goto, invalidateAll } from '$app/navigation';
     import { selectedProject } from '$lib/client/index.svelte';
+    import Tooltip from '$lib/components/basic-tooltip.svelte'
     import { cn } from '$lib/utils.js'
 
     let { data } = $props();
@@ -217,23 +218,31 @@
                             <Table.Cell class="py-2">{new Date(project.createdAt).toLocaleDateString()}</Table.Cell>
                             <Table.Cell class="py-2 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <Button variant="ghost" size="icon" 
-                                        disabled={project.id === DefaultProject.id}
-                                        onclick={(e) => {
-                                            e.stopPropagation();
-                                            openEditDialog(project);
-                                        }} title="Edit project">
-                                        <Pencil class="w-4 h-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" 
-                                        disabled={project.id === DefaultProject.id}
-                                        onclick={(e) => {
-                                            e.stopPropagation();
-                                            openDeleteDialog(project);
-                                        }} 
-                                        title="Delete project">
-                                        <Trash2 class="w-4 h-4" />
-                                    </Button>
+                                    <Tooltip tooltip="Export all chats">
+                                        <Button variant="ghost" size="icon" href={`/api/project/${project.id}/export`}>
+                                            <Download class="w-4 h-4" />
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip tooltip="Edit project">
+                                        <Button variant="ghost" size="icon"
+                                            disabled={project.id === DefaultProject.id}
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                openEditDialog(project);
+                                            }}>
+                                            <Pencil class="w-4 h-4" />
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip tooltip="Delete project">
+                                        <Button variant="ghost" size="icon"
+                                            disabled={project.id === DefaultProject.id}
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                openDeleteDialog(project);
+                                            }}>
+                                            <Trash2 class="w-4 h-4" />
+                                        </Button>
+                                    </Tooltip>
                                 </div>
                             </Table.Cell>
                         </Table.Row>
